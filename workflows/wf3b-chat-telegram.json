@@ -3,7 +3,7 @@
   "nodes": [
     {
       "id": "5cec15ea-09f7-4154-92b0-a7397159cba9",
-      "name": "Telegram Trigger",
+      "name": "Telegram_Trigger",
       "type": "n8n-nodes-base.telegramTrigger",
       "typeVersion": 1.1,
       "position": [
@@ -12,7 +12,7 @@
       ],
       "credentials": {
         "telegramApi": {
-          "id": "GANTI-ID-TELEGRAM",
+          "id": "cred-telegram",
           "name": "Telegram account"
         }
       },
@@ -31,9 +31,10 @@
         320,
         100
       ],
+      "alwaysOutputData": true,
       "credentials": {
         "postgres": {
-          "id": "GANTI-ID-PG-READER",
+          "id": "cred-pg-reader",
           "name": "Postgres mcp_reader"
         }
       },
@@ -83,13 +84,13 @@
       ],
       "credentials": {
         "telegramApi": {
-          "id": "GANTI-ID-TELEGRAM",
+          "id": "cred-telegram",
           "name": "Telegram account"
         }
       },
       "parameters": {
         "operation": "sendMessage",
-        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "chatId": "={{ $('Telegram_Trigger').item.json.message.chat.id }}",
         "text": "⛔ Akses ditolak. Akun Telegram Anda belum terdaftar di allowlist merchant H8Mart. Hubungi Tim Ops untuk pendaftaran."
       },
       "onError": "continueRegularOutput"
@@ -105,7 +106,7 @@
       ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "GANTI-ID-HEADER-AUTH",
+          "id": "cred-header-auth",
           "name": "Header Auth X-H8Mart-Token"
         }
       },
@@ -116,7 +117,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ merchant_id: $('Cek Allowlist Merchant').item.json.merchant_id, question: $('Telegram Trigger').item.json.message.text }) }}"
+        "jsonBody": "={{ JSON.stringify({ merchant_id: $('Cek Allowlist Merchant').item.json.merchant_id, question: $('Telegram_Trigger').item.json.message.text }) }}"
       }
     },
     {
@@ -130,20 +131,20 @@
       ],
       "credentials": {
         "telegramApi": {
-          "id": "GANTI-ID-TELEGRAM",
+          "id": "cred-telegram",
           "name": "Telegram account"
         }
       },
       "parameters": {
         "operation": "sendMessage",
-        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "chatId": "={{ $('Telegram_Trigger').item.json.message.chat.id }}",
         "text": "={{ $json.jawaban || 'Permintaan Anda sedang diproses oleh Tim CS H8Mart.' }}"
       },
       "onError": "continueRegularOutput"
     }
   ],
   "connections": {
-    "Telegram Trigger": {
+    "Telegram_Trigger": {
       "main": [
         [
           {
