@@ -773,7 +773,7 @@
         "tool": {
           "__rl": true,
           "mode": "list",
-          "value": "Tool Alasan Batal"
+          "value": "Tool_Alasan_Batal"
         },
         "inputMode": "json",
         "jsonInput": "={{ JSON.stringify({ merchant_id: 'M003', date: $('Hitung KPI Harian').item.json.tanggal }) }}"
@@ -790,7 +790,7 @@
         1450
       ],
       "parameters": {
-        "jsCode": "const kpi = $('Hitung KPI Harian').item.json;\nconst mcpOut = $json || {};\nconst reasonsList = mcpOut.ringkasan_alasan || [];\n\nlet reasonText = '';\nif (Array.isArray(reasonsList) && reasonsList.length > 0) {\n  reasonText = reasonsList.map(r => `• ${r.alasan}: ${r.jumlah}`).join('\\n');\n} else {\n  reasonText = 'Tidak ada pembatalan order terdata.';\n}\n\nconst message = `📊 *H8Mart Daily Operations Digest*\n📅 *Tanggal:* ${kpi.tanggal}\n\n📦 *Total Order:* ${kpi.total_orders}\n✅ *Terkirim:* ${kpi.delivered_orders}\n❌ *Batal/Gagal:* ${kpi.cancelled_orders}\n📉 *Cancel Rate:* ${kpi.cancel_rate_pct}%\n⏱️ *SLA 30 Menit:* ${kpi.sla_pct}% (${kpi.on_time_deliveries}/${kpi.delivered_orders})\n\n🔍 *Alasan Pembatalan Teratas (M003):*\n${reasonText}`;\n\nreturn [{\n  json: {\n    ...kpi,\n    digest_message: message\n  }\n}];"
+        "jsCode": "const kpi = $('Hitung KPI Harian').item.json;\nconst mcpOut = $json || {};\n\nlet reasonsList = mcpOut.ringkasan_alasan;\nif (!reasonsList && mcpOut.content && mcpOut.content[0] && mcpOut.content[0].text) {\n  let textData = mcpOut.content[0].text;\n  if (typeof textData === 'string') {\n    try { textData = JSON.parse(textData); } catch(e){}\n  }\n  if (Array.isArray(textData) && textData.length > 0) {\n    reasonsList = textData[0].ringkasan_alasan;\n  } else if (textData && textData.ringkasan_alasan) {\n    reasonsList = textData.ringkasan_alasan;\n  }\n}\nreasonsList = reasonsList || [];\n\nlet reasonText = '';\nif (Array.isArray(reasonsList) && reasonsList.length > 0) {\n  reasonText = reasonsList.map(r => `• ${r.alasan}: ${r.jumlah}`).join('\\n');\n} else {\n  reasonText = 'Tidak ada pembatalan order terdata.';\n}\n\nconst message = `📊 *H8Mart Daily Operations Digest*\\n📅 *Tanggal:* ${kpi.tanggal}\\n\\n📦 *Total Order:* ${kpi.total_orders}\\n✅ *Terkirim:* ${kpi.delivered_orders}\\n❌ *Batal/Gagal:* ${kpi.cancelled_orders}\\n📉 *Cancel Rate:* ${kpi.cancel_rate_pct}%\\n⏱️ *SLA 30 Menit:* ${kpi.sla_pct}% (${kpi.on_time_deliveries}/${kpi.delivered_orders})\\n\\n🔍 *Alasan Pembatalan Teratas (M003):*\\n${reasonText}`;\n\nreturn [{\n  json: {\n    ...kpi,\n    digest_message: message\n  }\n}];"
       }
     },
     {
