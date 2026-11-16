@@ -2,7 +2,7 @@
   "name": "WF1 Stock Sync, Order Intake dan Digest",
   "nodes": [
     {
-      "id": "4092b6ab-368c-4a59-b08a-49bf693409ae",
+      "id": "64430992-1431-4f54-84d1-76de5d809ebc",
       "name": "Jadwal Sinkron 15 Menit",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
@@ -22,7 +22,7 @@
       }
     },
     {
-      "id": "6de045e4-4a8d-4e3c-88ac-2bbf285f287e",
+      "id": "681df013-f9ce-4c39-9a53-1c26f8ddd947",
       "name": "Webhook Trigger Sinkron",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -30,7 +30,7 @@
         100,
         -50
       ],
-      "webhookId": "752ae7fe-e9f0-477d-9a68-c0d5422fcb7c",
+      "webhookId": "e631db7a-a229-4073-b01c-2e76dcd81160",
       "credentials": {
         "httpHeaderAuth": {
           "id": "GANTI-ID-HEADER-AUTH",
@@ -45,7 +45,7 @@
       }
     },
     {
-      "id": "e5a87fa1-96f7-41fc-b49e-155de72967af",
+      "id": "e9e8edd4-2003-4009-bdd8-ea52ad5b75c4",
       "name": "Ambil Daftar Merchant",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -65,7 +65,7 @@
       }
     },
     {
-      "id": "81dbaed7-c323-4104-8051-0b290265fed6",
+      "id": "dc6d2618-2584-4a33-aacd-eb1e919f8ce8",
       "name": "Loop Per Merchant",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
@@ -78,7 +78,7 @@
       }
     },
     {
-      "id": "d3748e3d-df3c-47b5-a898-bc3be15297c7",
+      "id": "2d7df47d-236e-4a24-88e4-dcea3651d728",
       "name": "Ambil Stok Merchant API",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -111,7 +111,7 @@
       "onError": "continueErrorOutput"
     },
     {
-      "id": "680545ba-d420-4247-a569-3116ed7feac2",
+      "id": "198dcbbd-3ab9-4f48-8c07-bc0bddf83483",
       "name": "Catat Dead-Letter",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -131,7 +131,7 @@
       }
     },
     {
-      "id": "459856c1-51a6-4db1-a47f-be93684ee81b",
+      "id": "194dd861-a9ef-46c3-a9d7-501a4aad5562",
       "name": "Alert Merchant Gagal",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -157,7 +157,7 @@
       "onError": "continueRegularOutput"
     },
     {
-      "id": "20c19f54-de66-48a0-bd6f-591786f14c89",
+      "id": "3c7deb20-e994-4fbc-bb6f-60c9abb65efb",
       "name": "Normalisasi Stok",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -170,7 +170,7 @@
       }
     },
     {
-      "id": "d944385e-9c33-4c78-a29e-913b19d70e11",
+      "id": "c5e69f35-2bab-47a6-81c1-36ba81d97f9a",
       "name": "Ada Baris Stok?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -200,7 +200,7 @@
       }
     },
     {
-      "id": "f4889cfc-39e4-4d20-a05a-a2f10bb984b2",
+      "id": "ba154a6a-197e-4036-ac63-73732a081b49",
       "name": "Gagal: Sinkron 0 Baris",
       "type": "n8n-nodes-base.stopAndError",
       "typeVersion": 1,
@@ -213,7 +213,7 @@
       }
     },
     {
-      "id": "55adde88-bbab-44b7-8868-645a859bed73",
+      "id": "1a14a9bb-0541-4fca-951e-460ebf132885",
       "name": "Ambil Katalog Produk",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -234,7 +234,7 @@
       }
     },
     {
-      "id": "b25d7ede-74ba-4900-b227-3dcb64c5258b",
+      "id": "4ff35cf2-9000-4f4f-b516-f5571dcf362e",
       "name": "Gabungkan Katalog",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
@@ -251,7 +251,7 @@
       }
     },
     {
-      "id": "1047257f-28ee-43cb-b5f8-f55b92bc5664",
+      "id": "b24005da-9139-4376-ac8b-6bcbb5c07b22",
       "name": "Upsert Stok",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -271,7 +271,7 @@
       }
     },
     {
-      "id": "30e00f55-4aea-4ade-a3ce-2c3825cbcb0d",
+      "id": "a68100c9-ee27-4328-94dc-46f741eb8591",
       "name": "Catat Sync Run",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -291,7 +291,7 @@
       }
     },
     {
-      "id": "576b5d0d-abdc-45ed-91bc-542ead8418c0",
+      "id": "ed12a46c-4799-4219-8ffa-c5e0c074ea97",
       "name": "Terlalu Lambat?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -321,7 +321,7 @@
       }
     },
     {
-      "id": "a5f9e989-0078-43f5-8ee2-85e0e7d6cba3",
+      "id": "3427ff31-6948-457e-b3d8-de6b5bc592ee",
       "name": "Alert Perlambatan",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
@@ -337,7 +337,7 @@
       },
       "parameters": {
         "operation": "sendMessage",
-        "chatId": "123456789",
+        "chatId": "1845199518",
         "text": "⚠️ *Peringatan Durasi Sinkron Stok:* Sinkron stok memakan waktu lebih dari 10 detik.",
         "additionalFields": {
           "parse_mode": "Markdown"
@@ -346,7 +346,7 @@
       "onError": "continueRegularOutput"
     },
     {
-      "id": "0bc7eb3e-7948-475a-aeda-8fdfdc824495",
+      "id": "996d7876-081e-4ae1-b8be-f98cd4f26e42",
       "name": "Heartbeat Uptime Kuma",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -361,7 +361,7 @@
       "onError": "continueRegularOutput"
     },
     {
-      "id": "140b6041-326c-4cff-9869-55add5bdb8f8",
+      "id": "e91e481c-d3af-4474-95e3-c687de8b25ad",
       "name": "Ada Produk Habis Baru?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -391,7 +391,7 @@
       }
     },
     {
-      "id": "30daeb39-118c-4da7-9a4a-de80542f13ba",
+      "id": "d401debe-bfb3-453e-8f4d-3d9cc4b46887",
       "name": "Laporkan Produk Habis",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -417,7 +417,7 @@
       "onError": "continueRegularOutput"
     },
     {
-      "id": "b671d342-13ce-42d3-925e-cc5b49acc384",
+      "id": "0f300433-f6fc-4609-972e-1d141565a6db",
       "name": "Webhook order.created",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -425,7 +425,7 @@
         100,
         1100
       ],
-      "webhookId": "af012ce4-dbb0-4a68-b811-98802b788dc2",
+      "webhookId": "478b18e4-40ac-4950-a1ef-ab66e3aec9f7",
       "credentials": {
         "httpHeaderAuth": {
           "id": "GANTI-ID-HEADER-AUTH",
@@ -440,7 +440,7 @@
       }
     },
     {
-      "id": "53e071a3-cca0-445f-95ad-91b1ea053a80",
+      "id": "50f15acc-9dad-4dad-bb72-e32de404fbda",
       "name": "Event Valid?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -470,7 +470,7 @@
       }
     },
     {
-      "id": "1fcebacd-3c35-4edc-bc91-545c7fcc6e09",
+      "id": "4e80dd5d-c16a-402d-bf49-3f2d4c244dc7",
       "name": "Respon 422 Tidak Valid",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -487,7 +487,7 @@
       }
     },
     {
-      "id": "108dc4fc-154c-4255-b572-5b8023d52e84",
+      "id": "51820170-8590-44ec-8cda-70806078cef0",
       "name": "Cek Stok Order",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -507,7 +507,7 @@
       }
     },
     {
-      "id": "7f93a7ad-b663-486a-af81-9ca320bcbc73",
+      "id": "4d9bd9c4-c8d7-474c-a481-be429bce102e",
       "name": "Routing Stok",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
@@ -603,7 +603,7 @@
       }
     },
     {
-      "id": "e91dc8bb-5be4-4741-b545-f5ec8ab79fef",
+      "id": "a866cb55-5197-4fc7-a385-3e1012761415",
       "name": "Catat Order",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -623,7 +623,7 @@
       }
     },
     {
-      "id": "e224eed4-c524-4eb5-87f4-a1bbd6a5d4d6",
+      "id": "bfb2e80a-f977-4b8b-a3c4-d5ab0248eb20",
       "name": "Respon 200 Diterima",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -640,7 +640,7 @@
       }
     },
     {
-      "id": "cf76124c-9f3e-49b6-b6df-d34166dd32c6",
+      "id": "4e6665bf-03a5-4f3e-ade3-cc3ff5ecccd5",
       "name": "Respon 409 Stok Habis",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -657,7 +657,7 @@
       }
     },
     {
-      "id": "c62eddb3-5fa6-45a2-94c6-083ad9c37cfa",
+      "id": "99256280-9af8-49e8-a80d-90af4839dd72",
       "name": "Jadwal Digest 07.00 WIB",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
@@ -672,7 +672,7 @@
       }
     },
     {
-      "id": "5d24e9fc-df6b-49b5-9d04-c784a92acf8e",
+      "id": "0e8106fc-c8fe-4dd0-8ca5-64b3609fd70b",
       "name": "Webhook Trigger Digest",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -680,7 +680,7 @@
         100,
         1350
       ],
-      "webhookId": "ba5908b0-44e8-4489-86dd-1760ed5f7e96",
+      "webhookId": "3926d6b7-64b8-42b9-acd3-1e2f2bd9fb28",
       "credentials": {
         "httpHeaderAuth": {
           "id": "GANTI-ID-HEADER-AUTH",
@@ -695,7 +695,7 @@
       }
     },
     {
-      "id": "5926283e-2ef7-4414-a36c-7e300fbf5208",
+      "id": "2376b0db-550a-40b9-b0d9-cbcce3eb9b0e",
       "name": "Hitung KPI Harian",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -715,7 +715,7 @@
       }
     },
     {
-      "id": "8de09796-125c-40fa-8788-0699455c1e7e",
+      "id": "224dec87-5df3-4579-9301-1616701015a7",
       "name": "Digest Kosong?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -745,7 +745,7 @@
       }
     },
     {
-      "id": "929e8509-485b-4633-a8b8-5fd12ca86a1a",
+      "id": "9a0a3027-cd78-43a1-b7c7-621a55c4f484",
       "name": "Gagal: Digest Kosong",
       "type": "n8n-nodes-base.stopAndError",
       "typeVersion": 1,
@@ -758,7 +758,7 @@
       }
     },
     {
-      "id": "12e857f6-031d-4409-90e3-8fd62be945f7",
+      "id": "85ba4f68-f5c8-4a29-9238-1dbc6335d6d3",
       "name": "Alasan Batal Teratas",
       "type": "@n8n/n8n-nodes-langchain.mcpClient",
       "typeVersion": 1,
@@ -781,7 +781,7 @@
       "onError": "continueRegularOutput"
     },
     {
-      "id": "ecc83db7-2449-4465-8ebf-f890f9220d8a",
+      "id": "165650ce-1eb6-4e71-b67a-255c7d2851d3",
       "name": "Tambah Alasan ke Digest",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -794,7 +794,7 @@
       }
     },
     {
-      "id": "ea7a42c5-6979-4687-87e0-ceaa01c2904d",
+      "id": "a0dae13a-e764-4d80-a58e-43b868f85b1c",
       "name": "Kirim Digest Telegram",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
@@ -810,7 +810,7 @@
       },
       "parameters": {
         "operation": "sendMessage",
-        "chatId": "123456789",
+        "chatId": "1845199518",
         "text": "={{ $json.digest_message }}",
         "additionalFields": {
           "parse_mode": "Markdown"
@@ -819,7 +819,7 @@
       "onError": "continueRegularOutput"
     },
     {
-      "id": "0807389b-0798-47be-a7a0-d7e3c79b80ca",
+      "id": "62df7174-8475-484d-ade6-a524854ebd3d",
       "name": "Kirim Digest Notification",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,

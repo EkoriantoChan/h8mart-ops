@@ -2,7 +2,7 @@
   "name": "WF4 Kompensasi dan Refund",
   "nodes": [
     {
-      "id": "2771aaec-d3bb-4a15-8779-e1e5ad3de385",
+      "id": "7aa60919-b9e7-4346-b304-aadc4eb57505",
       "name": "Terima Event",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -10,7 +10,7 @@
         100,
         100
       ],
-      "webhookId": "0e897607-fdd6-4596-96e6-e6d170b117ac",
+      "webhookId": "af63b970-f230-4034-b146-84a24bd7f0d0",
       "credentials": {
         "httpHeaderAuth": {
           "id": "GANTI-ID-HEADER-AUTH",
@@ -25,7 +25,7 @@
       }
     },
     {
-      "id": "489c8857-a4d4-4263-b2bb-c2e56cbe2403",
+      "id": "870ab19c-ea41-48cb-87ba-1a8bd738b454",
       "name": "Ambil Order",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -45,7 +45,7 @@
       }
     },
     {
-      "id": "1262fe94-caab-4014-bf59-a8cdd7c2f669",
+      "id": "6697ffdf-0fe3-41f1-9e77-3acf37b5276d",
       "name": "Tentukan Kebijakan",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -58,7 +58,7 @@
       }
     },
     {
-      "id": "17af6f33-959e-4fce-9547-fcb57ff70130",
+      "id": "0e43d12a-d275-4fff-93cb-1e370f74a796",
       "name": "Jenis Event?",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
@@ -117,7 +117,7 @@
       }
     },
     {
-      "id": "c09decc0-2a28-4348-ba7c-09531b7e882f",
+      "id": "7a011baf-9c93-4911-b3d6-887d0c2516e1",
       "name": "Catat Voucher",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -137,7 +137,7 @@
       }
     },
     {
-      "id": "e60a1e6d-7894-432a-9038-4b13ca19d939",
+      "id": "31a66496-f808-45f4-a5b5-0bfa0cc78ab1",
       "name": "Voucher Sudah Ada?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -167,7 +167,7 @@
       }
     },
     {
-      "id": "cc1fd570-8d54-4176-ba2b-8654307edf34",
+      "id": "914b5b80-a3d3-4a0f-a4d7-96f99ca674cb",
       "name": "Panggil Payment Voucher",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -210,7 +210,7 @@
       }
     },
     {
-      "id": "935107fe-eb52-4316-aa85-6650e7ac40b5",
+      "id": "5376e018-d0be-4fcf-b033-bbc28aef4ec9",
       "name": "Catat Voucher Berhasil",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -230,7 +230,7 @@
       }
     },
     {
-      "id": "ce7d0cb7-361a-45fb-a606-599ac278ea45",
+      "id": "3991861c-b702-4de6-b29f-1c9e2e8f0bb4",
       "name": "Notifikasi Voucher",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -256,7 +256,7 @@
       "onError": "continueRegularOutput"
     },
     {
-      "id": "8ee1f88b-d031-445e-88f3-5d6fc3132944",
+      "id": "422919d3-3577-4113-81d7-7d3ec7b65311",
       "name": "Catat Usulan Refund",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -276,7 +276,7 @@
       }
     },
     {
-      "id": "ebc46e5b-6003-49b8-b434-9004f3aaa904",
+      "id": "b7487322-4cf4-4cb5-92c9-8b9cffb0ac6c",
       "name": "Bisa Di-Refund?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -306,7 +306,7 @@
       }
     },
     {
-      "id": "68982c63-b8e8-442e-af8b-659032f05dbb",
+      "id": "99c84ec2-618f-4361-8b1a-2aaa05b8a98c",
       "name": "Perlu Approval?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -336,7 +336,7 @@
       }
     },
     {
-      "id": "d8969ed9-abb8-4960-92fe-8ddf99e450f9",
+      "id": "bf10853d-aebf-40f8-a28e-6e16451569bc",
       "name": "Minta Approval Telegram",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
@@ -344,7 +344,7 @@
         540,
         580
       ],
-      "webhookId": "c8693a07-b211-4125-9aaf-018237a8c1bf",
+      "webhookId": "a75558fa-f0b1-401a-b27a-7e1f5212da67",
       "credentials": {
         "telegramApi": {
           "id": "GANTI-ID-TELEGRAM",
@@ -367,7 +367,7 @@
       }
     },
     {
-      "id": "caa4ad1c-9c8b-428d-9ec0-8d34b0ce9617",
+      "id": "57e44a4d-d9a9-4098-849b-fba52bfa8710",
       "name": "Disetujui?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -397,7 +397,7 @@
       }
     },
     {
-      "id": "3b671ddd-b205-4144-975c-c8714a73b5e8",
+      "id": "40adf665-0f72-496b-b2ab-feec09015636",
       "name": "Tandai Ditolak",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -417,7 +417,7 @@
       }
     },
     {
-      "id": "09d30ee1-1da3-4f97-971c-0470402783cd",
+      "id": "0ef6cbab-617f-459e-a2bb-a10baf419cbf",
       "name": "Panggil Payment Refund",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -461,7 +461,7 @@
       "onError": "continueErrorOutput"
     },
     {
-      "id": "909f9182-9043-4e55-8b2c-f9dd81522db4",
+      "id": "cc023b61-0fad-45ca-95d9-8f18a5b20cd4",
       "name": "Catat Refund Selesai",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -481,7 +481,7 @@
       }
     },
     {
-      "id": "6286af1b-c830-4d65-9138-fee7002e22d8",
+      "id": "ae30d3a7-1e6b-4127-bd3d-fe315cde445b",
       "name": "Notifikasi Refund",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -507,7 +507,7 @@
       "onError": "continueRegularOutput"
     },
     {
-      "id": "be7e79b7-990d-4a75-b308-e6b31c829295",
+      "id": "ef3dfae0-df66-4bcd-8f44-1d3d935aeee6",
       "name": "Catat Dead-Letter Payment",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -527,7 +527,7 @@
       }
     },
     {
-      "id": "14c2c0a7-da84-4f7e-857c-4bf9ddf120be",
+      "id": "27c0d8b7-985a-4f94-8138-0dfc1aa51d16",
       "name": "Gagal: Payment Down",
       "type": "n8n-nodes-base.stopAndError",
       "typeVersion": 1,

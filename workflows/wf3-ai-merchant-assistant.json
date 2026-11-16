@@ -2,7 +2,7 @@
   "name": "WF3 Asisten AI Merchant",
   "nodes": [
     {
-      "id": "6f9178af-af51-4e3f-8bff-b70a5104d95b",
+      "id": "0bcbebd6-cdde-4ce9-89c1-c22bfb74ed9a",
       "name": "Terima Pertanyaan",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -10,7 +10,7 @@
         100,
         200
       ],
-      "webhookId": "cc08ad7c-28d3-4882-b183-0b4300b5a34b",
+      "webhookId": "eba7307c-5a1d-41d2-8d6d-ebce1fa45973",
       "credentials": {
         "httpHeaderAuth": {
           "id": "GANTI-ID-HEADER-AUTH",
@@ -25,7 +25,7 @@
       }
     },
     {
-      "id": "9dd392a1-f916-43c3-8540-071c313fe65f",
+      "id": "043619a5-a184-483f-9e4b-97c15fe91cf4",
       "name": "Ambil Hari Data Terakhir",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -45,7 +45,7 @@
       }
     },
     {
-      "id": "2a5629d1-da24-4978-9161-6a9017c7c8f6",
+      "id": "f40f37de-27c4-453e-9212-272353745ae6",
       "name": "Asisten Merchant",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
@@ -63,7 +63,7 @@
       "onError": "continueErrorOutput"
     },
     {
-      "id": "a62add5f-1550-46ab-8fb8-4ae46a763b55",
+      "id": "148eafd9-3900-4f45-8de5-97cf4b38bfce",
       "name": "OpenAI Chat Model",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.2,
@@ -87,7 +87,7 @@
       }
     },
     {
-      "id": "977fe573-894f-4340-b163-a94fbea2c154",
+      "id": "d6b84862-6044-4793-bdbd-4bb21e4b281a",
       "name": "MCP Client Tool",
       "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
       "typeVersion": 1,
@@ -102,7 +102,7 @@
       }
     },
     {
-      "id": "8ad1dacc-1db5-48b6-84fd-545587c1f66d",
+      "id": "038c5c13-5ff3-4568-82c3-e4da9d77590b",
       "name": "Structured Output Parser",
       "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
       "typeVersion": 1.2,
@@ -116,7 +116,7 @@
       }
     },
     {
-      "id": "4bb49f15-2d04-4dad-a8f4-91ef57e033af",
+      "id": "4fe6a395-7d68-4d72-8015-de7611659457",
       "name": "Parse Output AI",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -129,7 +129,7 @@
       }
     },
     {
-      "id": "e8cd14f7-4662-45cb-86de-253c32f1340a",
+      "id": "1f9db280-9b9e-4b88-bc9f-234dbf8ab60e",
       "name": "Lolos Guardrail?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -167,7 +167,7 @@
       }
     },
     {
-      "id": "586d53d3-2d2c-4a2b-8810-323262c4a181",
+      "id": "81207d6f-2288-4bfd-a0ed-38c6bd71a528",
       "name": "Balas Dijawab",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -184,7 +184,7 @@
       }
     },
     {
-      "id": "b8212c80-a398-484f-a85e-ca4d8935e9cb",
+      "id": "d816d520-ade7-4a99-a931-fe61ba362b7c",
       "name": "Buat Tiket CS",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -204,7 +204,7 @@
       }
     },
     {
-      "id": "f53d106b-1329-4401-b375-8fcccf5ef4ee",
+      "id": "33174fda-4b6d-4db2-bb3c-c806b5cef06c",
       "name": "Balas Eskalasi",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,

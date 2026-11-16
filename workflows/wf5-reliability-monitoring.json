@@ -2,7 +2,7 @@
   "name": "WF5 Reliability dan Monitoring",
   "nodes": [
     {
-      "id": "75365f53-1a2a-43d9-9e48-5158beaffe7a",
+      "id": "363137e2-3979-4c40-892c-e0b99ceae969",
       "name": "Error Trigger",
       "type": "n8n-nodes-base.errorTrigger",
       "typeVersion": 1,
@@ -12,7 +12,7 @@
       ]
     },
     {
-      "id": "e4dd5c50-6578-4e0b-a014-9983eb0d56fb",
+      "id": "0f24cc3f-b98c-4f36-9b8a-f1809d367cf9",
       "name": "Format Pesan Error",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -25,7 +25,7 @@
       }
     },
     {
-      "id": "12e975ac-efd4-4b15-9490-401f8477f6aa",
+      "id": "e3612e01-f178-415a-925d-97869f525af0",
       "name": "Catat Dead-Letter Error",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -46,7 +46,7 @@
       "onError": "continueRegularOutput"
     },
     {
-      "id": "4240c440-aca8-409b-9cb9-457409836110",
+      "id": "c80b543e-109d-45d3-a52b-e53ec39b584f",
       "name": "Alert Telegram Error",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
@@ -62,7 +62,7 @@
       },
       "parameters": {
         "operation": "sendMessage",
-        "chatId": "123456789",
+        "chatId": "1845199518",
         "text": "={{ $json.alert_text }}",
         "additionalFields": {
           "parse_mode": "Markdown"
@@ -71,7 +71,7 @@
       "onError": "continueRegularOutput"
     },
     {
-      "id": "bec31088-b47f-4a5b-a102-cc6d2d1699aa",
+      "id": "09283bd9-7a9e-4170-aa81-4b0b6f4b59c3",
       "name": "Alert Notification Error",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,

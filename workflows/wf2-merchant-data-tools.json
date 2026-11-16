@@ -2,7 +2,7 @@
   "name": "WF2 Merchant Data Tools",
   "nodes": [
     {
-      "id": "b24a6a26-04a5-4472-b0d2-0391b1aa3078",
+      "id": "71c8d2fd-442e-4946-8f5a-f3d6041ce9b8",
       "name": "MCP Server Trigger",
       "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
       "typeVersion": 1,
@@ -10,14 +10,14 @@
         400,
         100
       ],
-      "webhookId": "931c170e-4bb4-4ccf-a4b4-2db920de8487",
+      "webhookId": "e20ea8bc-100d-4fcf-9c4a-e358e14d4f00",
       "parameters": {
         "path": "merchant-tools",
         "authentication": "none"
       }
     },
     {
-      "id": "83a36e60-d820-4574-994c-5c0274c8e6e6",
+      "id": "52d58d92-6520-43da-81ae-ee1cadebdd72",
       "name": "Tool KPI Merchant",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -38,7 +38,7 @@
       }
     },
     {
-      "id": "c0331171-da33-46ae-a36d-10137ce56018",
+      "id": "a7fa6ac0-8fa9-4752-8835-cc5c759847d0",
       "name": "Tool Alasan Batal",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -59,7 +59,7 @@
       }
     },
     {
-      "id": "a96ea11a-82bc-423e-bec9-901241b6d229",
+      "id": "b47a1ee1-c49a-493f-9a3b-8a161c24f1fd",
       "name": "Tool Status Stok",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,

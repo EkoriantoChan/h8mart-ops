@@ -2,7 +2,7 @@
   "name": "WF3b Chat Asisten Telegram",
   "nodes": [
     {
-      "id": "a353be72-9bb3-4a37-879c-79004a38ebac",
+      "id": "5cec15ea-09f7-4154-92b0-a7397159cba9",
       "name": "Telegram Trigger",
       "type": "n8n-nodes-base.telegramTrigger",
       "typeVersion": 1.1,
@@ -23,7 +23,7 @@
       }
     },
     {
-      "id": "46aa0aff-9780-404d-86d2-7a24a978d773",
+      "id": "48dfceef-3ed1-4d97-83bf-23386f20a6cb",
       "name": "Cek Allowlist Merchant",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -43,7 +43,7 @@
       }
     },
     {
-      "id": "a0535352-6ed1-452c-8bec-2c494b46735c",
+      "id": "0b13e2b5-e440-4523-8ddf-35792e3047e0",
       "name": "Terdaftar?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -73,7 +73,7 @@
       }
     },
     {
-      "id": "a2e2c370-9d97-4919-930a-be868f4d4045",
+      "id": "9d4d083b-e1de-4f29-bbc8-5c22ba3f7c49",
       "name": "Tolak Chat Asing",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
@@ -95,7 +95,7 @@
       "onError": "continueRegularOutput"
     },
     {
-      "id": "3337d497-96cd-4d7c-baaa-34b2e19233ed",
+      "id": "f1e7d13c-91ad-4002-b898-19e35a281293",
       "name": "Panggil Asisten AI",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -120,7 +120,7 @@
       }
     },
     {
-      "id": "dd6e72c8-42f0-442a-a162-133692cff0cd",
+      "id": "9d9300ad-df3d-49f9-857d-6581953a406c",
       "name": "Kirim Jawaban Telegram",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
