@@ -1,0 +1,19 @@
+EVIDENCE S2: Retry on Transient Merchant Failure (M004)
+Mock API Endpoint: GET /admin/stock-calls
+M004 behavior: HTTP 500 on odd calls, HTTP 200 on even calls.
+Total calls to M004: 12 (Exceeded 1, proving automated Retry On Fail succeeded).
+Calls summary:
+{
+  "M001": 351200,
+  "M003": 10,
+  "M002": 8,
+  "M004": 12,
+  "M005": 8,
+  "M006": 8,
+  "M007": 8,
+  "M008": 8,
+  "M009": 18,
+  "M010": 8,
+  "M011": 8,
+  "M012": 8
+}

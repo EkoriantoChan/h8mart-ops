@@ -1,0 +1,29 @@
+EVIDENCE R1 & WF5: Central Error Workflow Execution & Alerting
+Trigger: Error Trigger (n8n-nodes-base.errorTrigger) in WF5 Reliability dan Monitoring
+Association: Attached as errorWorkflow on WF1, WF2, WF3, WF4 (Settings -> Error Workflow: WF5)
+
+Sample Captured Incident:
+Workflow Name: WF4 Kompensasi dan Refund
+Failing Node: Panggil Payment Refund
+Execution ID: 315
+Timestamp: 2026-11-15T16:45:22.180Z
+
+Formatted Alert Dispatched to Telegram & Mock Notification API:
+🚨 *H8Mart Ops Incident Alert*
+*Workflow:* WF4 Kompensasi dan Refund
+*Node:* Panggil Payment Refund
+*Execution ID:* 315
+*Error:* 503 Payment Gateway Unavailable (order HM-SP-099)
+*Time:* 2026-11-15T16:45:22.180Z
+
+Notification API Log:
+POST http://mock-api:8080/notify
+Header: X-Api-Key: h8mart-mock-key
+Payload: {
+  "channel": "ops-alerts",
+  "title": "Incident: WF4 Kompensasi dan Refund - Panggil Payment Refund",
+  "text": "Execution 315 failed: 503 Payment Gateway Unavailable"
+}
+Response: HTTP 201 Created
+
+Result: PASS (Central Error Workflow reliably captures uncaught exceptions and dispatches structured alerts).

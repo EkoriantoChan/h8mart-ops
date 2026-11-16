@@ -1,0 +1,5 @@
+EVIDENCE O1: Order Created OK (200)
+Payload: {"event": "order.created", "order_id": "HM-TEST-OK-001", "customer_id": "C0100", "merchant_id": "M001", "total_amount": 80000, "customer_note": "Tolong titip ke satpam.", "items": [{"sku": "SKU-001", "qty": 1}]}
+Response Code: 200
+Response Body:
+{"status":"accepted","order_id":"HM-TEST-OK-001","warning":null,"message":"Order berhasil diterima dan dicatat ke sistem"}

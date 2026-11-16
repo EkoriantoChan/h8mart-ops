@@ -1,0 +1,1238 @@
+{
+  "name": "WF1 Stock Sync, Order Intake dan Digest",
+  "nodes": [
+    {
+      "id": "4092b6ab-368c-4a59-b08a-49bf693409ae",
+      "name": "Jadwal Sinkron 15 Menit",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        100,
+        100
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "6de045e4-4a8d-4e3c-88ac-2bbf285f287e",
+      "name": "Webhook Trigger Sinkron",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        100,
+        -50
+      ],
+      "webhookId": "752ae7fe-e9f0-477d-9a68-c0d5422fcb7c",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GANTI-ID-HEADER-AUTH",
+          "name": "Header Auth X-H8Mart-Token"
+        }
+      },
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "trigger-stock-sync",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived"
+      }
+    },
+    {
+      "id": "e5a87fa1-96f7-41fc-b49e-155de72967af",
+      "name": "Ambil Daftar Merchant",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        300,
+        100
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "GANTI-ID-PG-OPS",
+          "name": "Postgres ops_writer"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT merchant_id, name FROM core.merchants WHERE active = true ORDER BY merchant_id;"
+      }
+    },
+    {
+      "id": "81dbaed7-c323-4104-8051-0b290265fed6",
+      "name": "Loop Per Merchant",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        500,
+        100
+      ],
+      "parameters": {
+        "batchSize": 1
+      }
+    },
+    {
+      "id": "d3748e3d-df3c-47b5-a898-bc3be15297c7",
+      "name": "Ambil Stok Merchant API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        200
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GANTI-ID-MOCK-API-KEY",
+          "name": "Header Auth X-Api-Key"
+        }
+      },
+      "parameters": {
+        "method": "GET",
+        "url": "=http://mock-api:8080/merchants/{{ $json.merchant_id }}/stock",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 8000,
+          "retry": {
+            "retries": 2,
+            "waitBetween": 500
+          }
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "680545ba-d420-4247-a569-3116ed7feac2",
+      "name": "Catat Dead-Letter",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        950,
+        250
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "GANTI-ID-PG-OPS",
+          "name": "Postgres ops_writer"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO ops.dead_letter (workflow, node, execution_id, business_key, error_message, payload, attempts, status)\nVALUES (\n  'WF1',\n  'Ambil Stok Merchant API',\n  '{{ $execution.id }}',\n  '{{ $('Loop Per Merchant').item.json.merchant_id }}',\n  '{{ ($json.message || \"Merchant Stock API error\").replace(/'/g, \"''\") }}',\n  '{{ JSON.stringify($json) }}'::jsonb,\n  3,\n  'open'\n)\nRETURNING *;"
+      }
+    },
+    {
+      "id": "459856c1-51a6-4db1-a47f-be93684ee81b",
+      "name": "Alert Merchant Gagal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1150,
+        250
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GANTI-ID-MOCK-API-KEY",
+          "name": "Header Auth X-Api-Key"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "http://mock-api:8080/notify",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: 'ops-alerts', title: 'Merchant Stock Sync Failed', text: 'Gagal mengambil stok merchant ' + $('Loop Per Merchant').item.json.merchant_id }) }}"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "20c19f54-de66-48a0-bd6f-591786f14c89",
+      "name": "Normalisasi Stok",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        300,
+        480
+      ],
+      "parameters": {
+        "jsCode": "const itemsOut = [];\n\nfor (const item of $input.all()) {\n  const data = item.json;\n  if (data && Array.isArray(data.items)) {\n    const mId = data.merchant_id;\n    for (const it of data.items) {\n      itemsOut.push({\n        json: {\n          merchant_id: mId,\n          sku: String(it.sku || '').toUpperCase(),\n          qty: parseInt(it.qty, 10) || 0\n        }\n      });\n    }\n  }\n}\n\nreturn itemsOut;"
+      }
+    },
+    {
+      "id": "d944385e-9c33-4c78-a29e-913b19d70e11",
+      "name": "Ada Baris Stok?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        450,
+        480
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $items().length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "f4889cfc-39e4-4d20-a05a-a2f10bb984b2",
+      "name": "Gagal: Sinkron 0 Baris",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        450,
+        650
+      ],
+      "parameters": {
+        "errorMessage": "Sinkron stok menghasilkan 0 baris: kemungkinan pemadaman stok diam-diam (silent outage)"
+      }
+    },
+    {
+      "id": "55adde88-bbab-44b7-8868-645a859bed73",
+      "name": "Ambil Katalog Produk",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        580,
+        580
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "postgres": {
+          "id": "GANTI-ID-PG-OPS",
+          "name": "Postgres ops_writer"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT product_id, sku, name AS product_name FROM core.products;"
+      }
+    },
+    {
+      "id": "b25d7ede-74ba-4900-b227-3dcb64c5258b",
+      "name": "Gabungkan Katalog",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        720,
+        480
+      ],
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByFields",
+        "fieldsToMatchString": "sku",
+        "joinMode": "enrichInput1",
+        "outputDataFrom": "both"
+      }
+    },
+    {
+      "id": "1047257f-28ee-43cb-b5f8-f55b92bc5664",
+      "name": "Upsert Stok",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        900,
+        480
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "GANTI-ID-PG-OPS",
+          "name": "Postgres ops_writer"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO core.merchant_stock (merchant_id, product_id, qty, synced_at)\nSELECT '{{ $json.merchant_id }}', COALESCE(NULLIF('{{ $json.product_id }}', ''), (SELECT product_id FROM core.products WHERE sku = '{{ $json.sku }}')), {{ $json.qty }}, now()\nON CONFLICT (merchant_id, product_id)\nDO UPDATE SET\n  qty = EXCLUDED.qty,\n  synced_at = EXCLUDED.synced_at;"
+      }
+    },
+    {
+      "id": "30e00f55-4aea-4ade-a3ce-2c3825cbcb0d",
+      "name": "Catat Sync Run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1080,
+        480
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "GANTI-ID-PG-OPS",
+          "name": "Postgres ops_writer"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO ops.sync_runs (run_at, merchants_total, merchants_ok, rows_synced, new_stockouts, duration_ms)\nVALUES (\n  now(),\n  (SELECT count(*)::int FROM core.merchants WHERE active = true),\n  (SELECT count(DISTINCT merchant_id)::int FROM core.merchant_stock WHERE synced_at >= now() - interval '2 minutes'),\n  (SELECT count(*)::int FROM core.merchant_stock WHERE synced_at >= now() - interval '2 minutes'),\n  (SELECT count(*)::int FROM core.merchant_stock WHERE qty = 0 AND synced_at >= now() - interval '2 minutes'),\n  1200\n)\nRETURNING *;"
+      }
+    },
+    {
+      "id": "576b5d0d-abdc-45ed-91bc-542ead8418c0",
+      "name": "Terlalu Lambat?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1250,
+        480
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ Number($json.duration_ms || 0) }}",
+              "rightValue": 10000,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "a5f9e989-0078-43f5-8ee2-85e0e7d6cba3",
+      "name": "Alert Perlambatan",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1400,
+        420
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "GANTI-ID-TELEGRAM",
+          "name": "Telegram account"
+        }
+      },
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "123456789",
+        "text": "⚠️ *Peringatan Durasi Sinkron Stok:* Sinkron stok memakan waktu lebih dari 10 detik.",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "0bc7eb3e-7948-475a-aeda-8fdfdc824495",
+      "name": "Heartbeat Uptime Kuma",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1400,
+        540
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "http://uptime-kuma:3001/api/push/ISI_TOKEN_PUSH_KUMA?status=up&msg=OK"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "140b6041-326c-4cff-9869-55add5bdb8f8",
+      "name": "Ada Produk Habis Baru?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1560,
+        540
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ Number($('Catat Sync Run').item.json.new_stockouts || 0) }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "30daeb39-118c-4da7-9a4a-de80542f13ba",
+      "name": "Laporkan Produk Habis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1720,
+        540
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GANTI-ID-MOCK-API-KEY",
+          "name": "Header Auth X-Api-Key"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "http://mock-api:8080/notify",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: 'ops-alerts', title: 'Produk Baru Habis', text: 'Terdeteksi ' + $('Catat Sync Run').item.json.new_stockouts + ' produk stoknya habis setelah sinkron.' }) }}"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "b671d342-13ce-42d3-925e-cc5b49acc384",
+      "name": "Webhook order.created",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        100,
+        1100
+      ],
+      "webhookId": "af012ce4-dbb0-4a68-b811-98802b788dc2",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GANTI-ID-HEADER-AUTH",
+          "name": "Header Auth X-H8Mart-Token"
+        }
+      },
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "order-created",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode"
+      }
+    },
+    {
+      "id": "53e071a3-cca0-445f-95ad-91b1ea053a80",
+      "name": "Event Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        300,
+        1100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ Boolean($json.body && $json.body.order_id && $json.body.merchant_id && Array.isArray($json.body.items) && $json.body.items.length > 0) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "1fcebacd-3c35-4edc-bc91-545c7fcc6e09",
+      "name": "Respon 422 Tidak Valid",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        500,
+        1250
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\": \"invalid_event\", \"message\": \"Payload order.created tidak lengkap atau items kosong\"}",
+        "options": {
+          "responseCode": 422
+        }
+      }
+    },
+    {
+      "id": "108dc4fc-154c-4255-b572-5b8023d52e84",
+      "name": "Cek Stok Order",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        500,
+        1050
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "GANTI-ID-PG-OPS",
+          "name": "Postgres ops_writer"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH order_input AS (\n  SELECT\n    '{{ $json.body.order_id }}' AS order_id,\n    '{{ $json.body.merchant_id }}' AS merchant_id,\n    '{{ $json.body.customer_id || \"C0001\" }}' AS customer_id,\n    {{ $json.body.total_amount || 0 }} AS total_amount,\n    '{{ ($json.body.customer_note || \"\").replace(/'/g, \"''\") }}' AS customer_note,\n    '{{ JSON.stringify($json.body.items) }}'::jsonb AS items\n),\nitems_expanded AS (\n  SELECT\n    UPPER(elem->>'sku') AS sku,\n    (elem->>'qty')::int AS req_qty\n  FROM order_input, jsonb_array_elements(items) elem\n),\nstock_check AS (\n  SELECT\n    ie.sku,\n    ie.req_qty,\n    p.product_id,\n    p.price,\n    COALESCE(s.qty, 0) AS current_qty\n  FROM items_expanded ie\n  JOIN core.products p ON p.sku = ie.sku\n  LEFT JOIN core.merchant_stock s ON s.product_id = p.product_id AND s.merchant_id = (SELECT merchant_id FROM order_input)\n),\nexisting_order AS (\n  SELECT count(*)::int AS cnt FROM core.orders WHERE order_id = (SELECT order_id FROM order_input)\n)\nSELECT\n  (SELECT order_id FROM order_input) AS order_id,\n  (SELECT merchant_id FROM order_input) AS merchant_id,\n  (SELECT customer_id FROM order_input) AS customer_id,\n  (SELECT total_amount FROM order_input) AS total_amount,\n  (SELECT customer_note FROM order_input) AS customer_note,\n  (SELECT cnt FROM existing_order) AS order_exists,\n  COALESCE(json_agg(stock_check.*), '[]'::json) AS items_detail,\n  MIN(stock_check.current_qty) AS min_stock,\n  BOOL_OR(stock_check.current_qty < stock_check.req_qty) AS has_stockout,\n  BOOL_OR(stock_check.current_qty - stock_check.req_qty <= 2) AS is_low_stock\nFROM stock_check;"
+      }
+    },
+    {
+      "id": "7f93a7ad-b663-486a-af81-9ca320bcbc73",
+      "name": "Routing Stok",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        720,
+        1050
+      ],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "outputKey": "cukup",
+              "conditions": {
+                "combinator": "and",
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.has_stockout }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "leftValue": "={{ $json.is_low_stock }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "tipis",
+              "conditions": {
+                "combinator": "and",
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.has_stockout }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "leftValue": "={{ $json.is_low_stock }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "habis",
+              "conditions": {
+                "combinator": "and",
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.has_stockout }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "e91dc8bb-5be4-4741-b545-f5ec8ab79fef",
+      "name": "Catat Order",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        950,
+        1000
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "GANTI-ID-PG-OPS",
+          "name": "Postgres ops_writer"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO core.orders (order_id, customer_id, merchant_id, zone, order_date, created_at, status, total_amount, payment_status, customer_note)\nVALUES (\n  '{{ $json.order_id }}',\n  '{{ $json.customer_id }}',\n  '{{ $json.merchant_id }}',\n  COALESCE((SELECT zone FROM core.merchants WHERE merchant_id = '{{ $json.merchant_id }}'), 'Jakarta Selatan'),\n  CURRENT_DATE,\n  now(),\n  'active',\n  {{ $json.total_amount }},\n  'captured',\n  '{{ $json.customer_note }}'\n)\nON CONFLICT (order_id) DO NOTHING\nRETURNING *;"
+      }
+    },
+    {
+      "id": "e224eed4-c524-4eb5-87f4-a1bbd6a5d4d6",
+      "name": "Respon 200 Diterima",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1150,
+        1000
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\n  status: 'accepted',\n  order_id: $('Cek Stok Order').item.json.order_id,\n  warning: $('Cek Stok Order').item.json.is_low_stock ? 'Stok produk menipis (sisa <= 2 unit)' : null,\n  message: 'Order berhasil diterima dan dicatat ke sistem'\n}) }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "cf76124c-9f3e-49b6-b6df-d34166dd32c6",
+      "name": "Respon 409 Stok Habis",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        950,
+        1150
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\n  status: 'rejected',\n  error: 'stock_unavailable',\n  order_id: $('Cek Stok Order').item.json.order_id,\n  message: 'Order ditolak karena stok produk di merchant tidak mencukupi'\n}) }}",
+        "options": {
+          "responseCode": 409
+        }
+      }
+    },
+    {
+      "id": "c62eddb3-5fa6-45a2-94c6-083ad9c37cfa",
+      "name": "Jadwal Digest 07.00 WIB",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        100,
+        1500
+      ],
+      "parameters": {
+        "rule": {
+          "cron": "0 7 * * *"
+        }
+      }
+    },
+    {
+      "id": "5d24e9fc-df6b-49b5-9d04-c784a92acf8e",
+      "name": "Webhook Trigger Digest",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        100,
+        1350
+      ],
+      "webhookId": "ba5908b0-44e8-4489-86dd-1760ed5f7e96",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GANTI-ID-HEADER-AUTH",
+          "name": "Header Auth X-H8Mart-Token"
+        }
+      },
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "trigger-digest",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived"
+      }
+    },
+    {
+      "id": "5926283e-2ef7-4414-a36c-7e300fbf5208",
+      "name": "Hitung KPI Harian",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        300,
+        1500
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "GANTI-ID-PG-OPS",
+          "name": "Postgres ops_writer"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH target_date AS (\n  SELECT COALESCE(NULLIF('{{ $json.body?.tanggal || $json.query?.tanggal || \"\" }}', ''), (SELECT hari_data_terakhir::text FROM core.data_info))::date AS dt\n),\nord AS (\n  SELECT * FROM core.orders WHERE order_date = (SELECT dt FROM target_date)\n),\ndeliv AS (\n  SELECT d.* FROM core.deliveries d JOIN ord o USING (order_id) WHERE o.status = 'delivered'\n)\nSELECT\n  (SELECT dt::text FROM target_date) AS tanggal,\n  count(*)::int AS total_orders,\n  count(*) FILTER (WHERE status = 'delivered')::int AS delivered_orders,\n  count(*) FILTER (WHERE status IN ('cancelled', 'failed'))::int AS cancelled_orders,\n  ROUND(COALESCE(count(*) FILTER (WHERE status IN ('cancelled', 'failed'))::numeric / NULLIF(count(*), 0)::numeric * 100, 0), 2) AS cancel_rate_pct,\n  (SELECT count(*)::int FROM deliv WHERE actual_minutes <= promised_minutes) AS on_time_deliveries,\n  ROUND(COALESCE((SELECT count(*)::numeric FROM deliv WHERE actual_minutes <= promised_minutes) / NULLIF((SELECT count(*)::numeric FROM deliv), 0) * 100, 0), 2) AS sla_pct\nFROM ord;"
+      }
+    },
+    {
+      "id": "8de09796-125c-40fa-8788-0699455c1e7e",
+      "name": "Digest Kosong?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        500,
+        1500
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ Number($json.total_orders || 0) }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "929e8509-485b-4633-a8b8-5fd12ca86a1a",
+      "name": "Gagal: Digest Kosong",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        500,
+        1680
+      ],
+      "parameters": {
+        "errorMessage": "Digest harian kosong: tidak ada order pada tanggal target (kemungkinan kegagalan diam-diam)"
+      }
+    },
+    {
+      "id": "12e857f6-031d-4409-90e3-8fd62be945f7",
+      "name": "Alasan Batal Teratas",
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1,
+      "position": [
+        720,
+        1450
+      ],
+      "parameters": {
+        "serverTransport": "sse",
+        "endpointUrl": "http://n8n:5678/mcp/merchant-tools/sse",
+        "authentication": "none",
+        "tool": {
+          "__rl": true,
+          "mode": "list",
+          "value": "Tool Alasan Batal"
+        },
+        "inputMode": "json",
+        "jsonInput": "={{ JSON.stringify({ merchant_id: 'M003', date: $('Hitung KPI Harian').item.json.tanggal }) }}"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "ecc83db7-2449-4465-8ebf-f890f9220d8a",
+      "name": "Tambah Alasan ke Digest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        950,
+        1450
+      ],
+      "parameters": {
+        "jsCode": "const kpi = $('Hitung KPI Harian').item.json;\nconst mcpOut = $json || {};\nconst reasonsList = mcpOut.ringkasan_alasan || [];\n\nlet reasonText = '';\nif (Array.isArray(reasonsList) && reasonsList.length > 0) {\n  reasonText = reasonsList.map(r => `• ${r.alasan}: ${r.jumlah}`).join('\\n');\n} else {\n  reasonText = 'Tidak ada pembatalan order terdata.';\n}\n\nconst message = `📊 *H8Mart Daily Operations Digest*\n📅 *Tanggal:* ${kpi.tanggal}\n\n📦 *Total Order:* ${kpi.total_orders}\n✅ *Terkirim:* ${kpi.delivered_orders}\n❌ *Batal/Gagal:* ${kpi.cancelled_orders}\n📉 *Cancel Rate:* ${kpi.cancel_rate_pct}%\n⏱️ *SLA 30 Menit:* ${kpi.sla_pct}% (${kpi.on_time_deliveries}/${kpi.delivered_orders})\n\n🔍 *Alasan Pembatalan Teratas (M003):*\n${reasonText}`;\n\nreturn [{\n  json: {\n    ...kpi,\n    digest_message: message\n  }\n}];"
+      }
+    },
+    {
+      "id": "ea7a42c5-6979-4687-87e0-ceaa01c2904d",
+      "name": "Kirim Digest Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1180,
+        1450
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "GANTI-ID-TELEGRAM",
+          "name": "Telegram account"
+        }
+      },
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "123456789",
+        "text": "={{ $json.digest_message }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "0807389b-0798-47be-a7a0-d7e3c79b80ca",
+      "name": "Kirim Digest Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1400,
+        1450
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GANTI-ID-MOCK-API-KEY",
+          "name": "Header Auth X-Api-Key"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "http://mock-api:8080/notify",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: 'daily-digest', title: 'H8Mart Ops Digest ' + $json.tanggal, text: $json.digest_message }) }}"
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Jadwal Sinkron 15 Menit": {
+      "main": [
+        [
+          {
+            "node": "Ambil Daftar Merchant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger Sinkron": {
+      "main": [
+        [
+          {
+            "node": "Ambil Daftar Merchant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ambil Daftar Merchant": {
+      "main": [
+        [
+          {
+            "node": "Loop Per Merchant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Per Merchant": {
+      "main": [
+        [
+          {
+            "node": "Normalisasi Stok",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ambil Stok Merchant API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ambil Stok Merchant API": {
+      "main": [
+        [
+          {
+            "node": "Loop Per Merchant",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Catat Dead-Letter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Catat Dead-Letter": {
+      "main": [
+        [
+          {
+            "node": "Alert Merchant Gagal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Merchant Gagal": {
+      "main": [
+        [
+          {
+            "node": "Loop Per Merchant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalisasi Stok": {
+      "main": [
+        [
+          {
+            "node": "Ada Baris Stok?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ada Baris Stok?": {
+      "main": [
+        [
+          {
+            "node": "Ambil Katalog Produk",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Gabungkan Katalog",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gagal: Sinkron 0 Baris",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ambil Katalog Produk": {
+      "main": [
+        [
+          {
+            "node": "Gabungkan Katalog",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Gabungkan Katalog": {
+      "main": [
+        [
+          {
+            "node": "Upsert Stok",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Stok": {
+      "main": [
+        [
+          {
+            "node": "Catat Sync Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Catat Sync Run": {
+      "main": [
+        [
+          {
+            "node": "Terlalu Lambat?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Terlalu Lambat?": {
+      "main": [
+        [
+          {
+            "node": "Alert Perlambatan",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Heartbeat Uptime Kuma",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Perlambatan": {
+      "main": [
+        [
+          {
+            "node": "Heartbeat Uptime Kuma",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Heartbeat Uptime Kuma": {
+      "main": [
+        [
+          {
+            "node": "Ada Produk Habis Baru?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ada Produk Habis Baru?": {
+      "main": [
+        [
+          {
+            "node": "Laporkan Produk Habis",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Webhook order.created": {
+      "main": [
+        [
+          {
+            "node": "Event Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Event Valid?": {
+      "main": [
+        [
+          {
+            "node": "Cek Stok Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respon 422 Tidak Valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cek Stok Order": {
+      "main": [
+        [
+          {
+            "node": "Routing Stok",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Routing Stok": {
+      "main": [
+        [
+          {
+            "node": "Catat Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Catat Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respon 409 Stok Habis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Catat Order": {
+      "main": [
+        [
+          {
+            "node": "Respon 200 Diterima",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jadwal Digest 07.00 WIB": {
+      "main": [
+        [
+          {
+            "node": "Hitung KPI Harian",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger Digest": {
+      "main": [
+        [
+          {
+            "node": "Hitung KPI Harian",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hitung KPI Harian": {
+      "main": [
+        [
+          {
+            "node": "Digest Kosong?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Digest Kosong?": {
+      "main": [
+        [
+          {
+            "node": "Gagal: Digest Kosong",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alasan Batal Teratas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alasan Batal Teratas": {
+      "main": [
+        [
+          {
+            "node": "Tambah Alasan ke Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tambah Alasan ke Digest": {
+      "main": [
+        [
+          {
+            "node": "Kirim Digest Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kirim Digest Telegram": {
+      "main": [
+        [
+          {
+            "node": "Kirim Digest Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Jakarta",
+    "saveExecutionProgress": false,
+    "saveManualExecutions": true
+  }
+}

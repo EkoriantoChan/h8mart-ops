@@ -1,0 +1,205 @@
+{
+  "name": "WF3b Chat Asisten Telegram",
+  "nodes": [
+    {
+      "id": "a353be72-9bb3-4a37-879c-79004a38ebac",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        100
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "GANTI-ID-TELEGRAM",
+          "name": "Telegram account"
+        }
+      },
+      "parameters": {
+        "updates": [
+          "message"
+        ]
+      }
+    },
+    {
+      "id": "46aa0aff-9780-404d-86d2-7a24a978d773",
+      "name": "Cek Allowlist Merchant",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        320,
+        100
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "GANTI-ID-PG-READER",
+          "name": "Postgres mcp_reader"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT chat_id, merchant_id, label\nFROM ops.telegram_merchants\nWHERE chat_id = {{ $json.message.chat.id }};"
+      }
+    },
+    {
+      "id": "a0535352-6ed1-452c-8bec-2c494b46735c",
+      "name": "Terdaftar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        540,
+        100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ Boolean($items().length > 0 && $json.merchant_id) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "a2e2c370-9d97-4919-930a-be868f4d4045",
+      "name": "Tolak Chat Asing",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        760,
+        220
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "GANTI-ID-TELEGRAM",
+          "name": "Telegram account"
+        }
+      },
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "⛔ Akses ditolak. Akun Telegram Anda belum terdaftar di allowlist merchant H8Mart. Hubungi Tim Ops untuk pendaftaran."
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "3337d497-96cd-4d7c-baaa-34b2e19233ed",
+      "name": "Panggil Asisten AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GANTI-ID-HEADER-AUTH",
+          "name": "Header Auth X-H8Mart-Token"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "http://n8n:5678/webhook/merchant-assistant",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ merchant_id: $('Cek Allowlist Merchant').item.json.merchant_id, question: $('Telegram Trigger').item.json.message.text }) }}"
+      }
+    },
+    {
+      "id": "dd6e72c8-42f0-442a-a162-133692cff0cd",
+      "name": "Kirim Jawaban Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        980,
+        0
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "GANTI-ID-TELEGRAM",
+          "name": "Telegram account"
+        }
+      },
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.jawaban || 'Permintaan Anda sedang diproses oleh Tim CS H8Mart.' }}"
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Cek Allowlist Merchant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cek Allowlist Merchant": {
+      "main": [
+        [
+          {
+            "node": "Terdaftar?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Terdaftar?": {
+      "main": [
+        [
+          {
+            "node": "Panggil Asisten AI",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tolak Chat Asing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Panggil Asisten AI": {
+      "main": [
+        [
+          {
+            "node": "Kirim Jawaban Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Jakarta",
+    "saveExecutionProgress": false,
+    "saveManualExecutions": true
+  }
+}

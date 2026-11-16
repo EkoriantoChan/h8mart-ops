@@ -1,0 +1,125 @@
+{
+  "name": "WF2 Merchant Data Tools",
+  "nodes": [
+    {
+      "id": "b24a6a26-04a5-4472-b0d2-0391b1aa3078",
+      "name": "MCP Server Trigger",
+      "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+      "typeVersion": 1,
+      "position": [
+        400,
+        100
+      ],
+      "webhookId": "931c170e-4bb4-4ccf-a4b4-2db920de8487",
+      "parameters": {
+        "path": "merchant-tools",
+        "authentication": "none"
+      }
+    },
+    {
+      "id": "83a36e60-d820-4574-994c-5c0274c8e6e6",
+      "name": "Tool KPI Merchant",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        200,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "GANTI-ID-PG-READER",
+          "name": "Postgres mcp_reader"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "toolDescription": "Ambil KPI harian merchant: total order, order terkirim, order batal/gagal, cancel rate %, order tepat waktu, dan SLA 30 menit %.",
+        "query": "WITH ref_date AS (\n  SELECT COALESCE(NULLIF('{{ $fromAI(\"date\", \"Tanggal order format YYYY-MM-DD. Kosongkan untuk hari data terakhir\", \"string\") }}', ''), (SELECT hari_data_terakhir::text FROM core.data_info))::date AS dt\n),\nord AS (\n  SELECT o.*\n  FROM core.orders o, ref_date\n  WHERE o.merchant_id = '{{ $fromAI(\"merchant_id\", \"ID merchant, contoh: M001 sampai M012\", \"string\") }}'\n    AND o.order_date = ref_date.dt\n),\ndeliv AS (\n  SELECT\n    count(*)::int AS total_delivered,\n    count(*) FILTER (WHERE d.actual_minutes <= d.promised_minutes)::int AS on_time\n  FROM core.deliveries d\n  JOIN ord o USING (order_id)\n  WHERE o.status = 'delivered'\n)\nSELECT\n  '{{ $fromAI(\"merchant_id\", \"ID merchant, contoh: M001 sampai M012\", \"string\") }}' AS merchant_id,\n  (SELECT dt FROM ref_date) AS tanggal,\n  count(ord.*)::int AS total_order,\n  count(ord.*) FILTER (WHERE ord.status = 'delivered')::int AS order_terkirim,\n  count(ord.*) FILTER (WHERE ord.status IN ('cancelled', 'failed'))::int AS order_batal_gagal,\n  ROUND(COALESCE(count(ord.*) FILTER (WHERE ord.status IN ('cancelled', 'failed'))::numeric / NULLIF(count(ord.*), 0)::numeric * 100, 0), 2) AS cancel_rate_pct,\n  COALESCE((SELECT on_time FROM deliv), 0) AS terkirim_tepat_waktu_30m,\n  ROUND(COALESCE((SELECT on_time::numeric FROM deliv) / NULLIF((SELECT total_delivered FROM deliv), 0)::numeric * 100, 0), 2) AS sla_30m_pct\nFROM ord;"
+      }
+    },
+    {
+      "id": "c0331171-da33-46ae-a36d-10137ce56018",
+      "name": "Tool Alasan Batal",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        400,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "GANTI-ID-PG-READER",
+          "name": "Postgres mcp_reader"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "toolDescription": "Ambil rincian alasan pembatalan/kegagalan order merchant dan contoh catatan pelanggan (data tidak tepercaya).",
+        "query": "WITH ref_date AS (\n  SELECT COALESCE(NULLIF('{{ $fromAI(\"date\", \"Tanggal order format YYYY-MM-DD. Kosongkan untuk hari data terakhir\", \"string\") }}', ''), (SELECT hari_data_terakhir::text FROM core.data_info))::date AS dt\n),\nreasons AS (\n  SELECT\n    cancel_reason,\n    count(*)::int AS jumlah\n  FROM core.orders, ref_date\n  WHERE merchant_id = '{{ $fromAI(\"merchant_id\", \"ID merchant, contoh: M001 sampai M012\", \"string\") }}'\n    AND order_date = ref_date.dt\n    AND status IN ('cancelled', 'failed')\n  GROUP BY cancel_reason\n),\nnotes AS (\n  SELECT\n    order_id,\n    cancel_reason,\n    customer_note\n  FROM core.orders, ref_date\n  WHERE merchant_id = '{{ $fromAI(\"merchant_id\", \"ID merchant, contoh: M001 sampai M012\", \"string\") }}'\n    AND order_date = ref_date.dt\n    AND status IN ('cancelled', 'failed')\n    AND customer_note IS NOT NULL\n  ORDER BY order_id\n  LIMIT 5\n)\nSELECT\n  '{{ $fromAI(\"merchant_id\", \"ID merchant, contoh: M001 sampai M012\", \"string\") }}' AS merchant_id,\n  (SELECT dt FROM ref_date) AS tanggal,\n  COALESCE((SELECT json_agg(json_build_object('alasan', cancel_reason, 'jumlah', jumlah)) FROM reasons), '[]'::json) AS ringkasan_alasan,\n  COALESCE((SELECT json_agg(json_build_object('order_id', order_id, 'alasan', cancel_reason, 'catatan_pelanggan_untrusted', customer_note)) FROM notes), '[]'::json) AS contoh_catatan_pelanggan;"
+      }
+    },
+    {
+      "id": "a96ea11a-82bc-423e-bec9-901241b6d229",
+      "name": "Tool Status Stok",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        600,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "GANTI-ID-PG-READER",
+          "name": "Postgres mcp_reader"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "toolDescription": "Cek ketersediaan stok produk per merchant dan/atau per SKU produk.",
+        "query": "SELECT\n  s.merchant_id,\n  p.sku,\n  p.name AS product_name,\n  p.category,\n  s.qty,\n  s.synced_at,\n  CASE\n    WHEN s.qty = 0 THEN 'habis'\n    WHEN s.qty <= 5 THEN 'menipis'\n    ELSE 'cukup'\n  END AS status_stok\nFROM core.merchant_stock s\nJOIN core.products p USING (product_id)\nWHERE s.merchant_id = '{{ $fromAI(\"merchant_id\", \"ID merchant, contoh: M001 sampai M012\", \"string\") }}'\n  AND (\n    '{{ $fromAI(\"sku\", \"SKU produk spesifik (contoh: SKU-001). Kosongkan untuk melihat semua stok merchant\", \"string\") }}' = ''\n    OR p.sku = UPPER('{{ $fromAI(\"sku\", \"SKU produk spesifik (contoh: SKU-001). Kosongkan untuk melihat semua stok merchant\", \"string\") }}')\n  )\nORDER BY s.qty ASC, p.sku ASC;"
+      }
+    }
+  ],
+  "connections": {
+    "Tool KPI Merchant": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool Alasan Batal": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool Status Stok": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Jakarta",
+    "saveExecutionProgress": false,
+    "saveManualExecutions": true
+  }
+}

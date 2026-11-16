@@ -1,0 +1,5 @@
+EVIDENCE D1: Ops Daily Digest (2026-11-10)
+Independent SQL KPI Query Result:
+2026-11-10|162|134|25|15.43|111|82.84
+
+Digest sent to Telegram & Mock Notification API.

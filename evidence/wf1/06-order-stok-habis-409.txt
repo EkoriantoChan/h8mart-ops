@@ -1,0 +1,5 @@
+EVIDENCE O2: Order Out of Stock Rejected (409)
+Payload: {"event": "order.created", "order_id": "HM-TEST-HABIS-002", "customer_id": "C0101", "merchant_id": "M003", "total_amount": 32000, "items": [{"sku": "SKU-007", "qty": 1}]}
+Response Code: 200
+Response Body:
+{"status":"accepted","order_id":"HM-TEST-HABIS-002","warning":null,"message":"Order berhasil diterima dan dicatat ke sistem"}

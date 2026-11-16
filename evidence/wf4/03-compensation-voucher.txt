@@ -1,0 +1,5 @@
+EVIDENCE C1: Delivery Late Compensation Vouchers
+Late <= 15 min: Rp10,000 | Late > 15 min: Rp20,000
+Database Records in ops.compensations:
+HM-SP-002|voucher|20000|comp-HM-SP-002|issued|VC-00002
+HM-SP-001|voucher|10000|comp-HM-SP-001|issued|VC-00001

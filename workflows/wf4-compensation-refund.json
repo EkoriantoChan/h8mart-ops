@@ -1,0 +1,758 @@
+{
+  "name": "WF4 Kompensasi dan Refund",
+  "nodes": [
+    {
+      "id": "2771aaec-d3bb-4a15-8779-e1e5ad3de385",
+      "name": "Terima Event",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        100,
+        100
+      ],
+      "webhookId": "0e897607-fdd6-4596-96e6-e6d170b117ac",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GANTI-ID-HEADER-AUTH",
+          "name": "Header Auth X-H8Mart-Token"
+        }
+      },
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ops-events",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived"
+      }
+    },
+    {
+      "id": "489c8857-a4d4-4263-b2bb-c2e56cbe2403",
+      "name": "Ambil Order",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        320,
+        100
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "GANTI-ID-PG-OPS",
+          "name": "Postgres ops_writer"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  '{{ $json.body.event }}' AS event_name,\n  '{{ $json.body.order_id }}' AS order_id,\n  {{ $json.body.minutes_late || 0 }} AS minutes_late,\n  '{{ ($json.body.reason || \"\").replace(/'/g, \"''\") }}' AS fail_reason,\n  o.customer_id,\n  o.merchant_id,\n  o.status,\n  o.total_amount,\n  o.payment_status,\n  (SELECT status FROM ops.compensations WHERE idempotency_key = 'comp-{{ $json.body.order_id }}') AS existing_comp_status,\n  (SELECT status FROM ops.refund_actions WHERE idempotency_key = 'ref-{{ $json.body.order_id }}') AS existing_ref_status,\n  COALESCE((SELECT chat_id::text FROM ops.telegram_merchants LIMIT 1), '1845199518') AS ops_chat_id\nFROM core.orders o\nWHERE o.order_id = '{{ $json.body.order_id }}';"
+      }
+    },
+    {
+      "id": "1262fe94-caab-4014-bf59-a8cdd7c2f669",
+      "name": "Tentukan Kebijakan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        540,
+        100
+      ],
+      "parameters": {
+        "jsCode": "const event = $json.event_name;\nconst orderId = $json.order_id;\nconst minutesLate = Number($json.minutes_late) || 0;\nconst totalAmount = Number($json.total_amount) || 0;\nconst paymentStatus = $json.payment_status;\n\nlet voucherAmount = 0;\nif (event === 'delivery.late') {\n  voucherAmount = minutesLate <= 15 ? 10000 : 20000;\n}\n\nconst needsApproval = totalAmount > 100000;\nconst isCaptured = paymentStatus === 'captured';\nconst alreadyCompensated = Boolean($json.existing_comp_status === 'issued');\nconst alreadyRefunded = Boolean($json.existing_ref_status === 'refunded' || $json.existing_ref_status === 'rejected');\nconst refundEligible = Boolean(isCaptured && !alreadyRefunded);\n\nreturn [{\n  json: {\n    ...$json,\n    voucher_amount: voucherAmount,\n    refund_amount: totalAmount,\n    comp_idempotency_key: `comp-${orderId}`,\n    ref_idempotency_key: `ref-${orderId}`,\n    needs_approval: needsApproval,\n    is_captured: isCaptured,\n    already_compensated: alreadyCompensated,\n    already_refunded: alreadyRefunded,\n    refund_eligible: refundEligible\n  }\n}];"
+      }
+    },
+    {
+      "id": "17af6f33-959e-4fce-9547-fcb57ff70130",
+      "name": "Jenis Event?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        760,
+        100
+      ],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "outputKey": "delivery.late",
+              "conditions": {
+                "combinator": "and",
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_name }}",
+                    "rightValue": "delivery.late",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "order.failed",
+              "conditions": {
+                "combinator": "and",
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_name }}",
+                    "rightValue": "order.failed",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c09decc0-2a28-4348-ba7c-09531b7e882f",
+      "name": "Catat Voucher",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        100,
+        360
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "GANTI-ID-PG-OPS",
+          "name": "Postgres ops_writer"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO ops.compensations (order_id, kind, amount, idempotency_key, status, note)\nVALUES (\n  '{{ $json.order_id }}',\n  'voucher',\n  {{ $json.voucher_amount }},\n  '{{ $json.comp_idempotency_key }}',\n  'pending',\n  'Keterlambatan pengantaran {{ $json.minutes_late }} menit'\n)\nON CONFLICT (idempotency_key) DO UPDATE SET updated_at = now()\nRETURNING *;"
+      }
+    },
+    {
+      "id": "e60a1e6d-7894-432a-9038-4b13ca19d939",
+      "name": "Voucher Sudah Ada?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        250,
+        360
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Tentukan Kebijakan').item.json.already_compensated }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "cc1fd570-8d54-4176-ba2b-8654307edf34",
+      "name": "Panggil Payment Voucher",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        420,
+        360
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GANTI-ID-MOCK-API-KEY",
+          "name": "Header Auth X-Api-Key"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "http://mock-api:8080/payments/vouchers",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $('Catat Voucher').item.json.idempotency_key }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ order_id: $('Catat Voucher').item.json.order_id, amount: Number($('Catat Voucher').item.json.amount) }) }}",
+        "options": {
+          "retry": {
+            "retries": 2,
+            "waitBetween": 500
+          }
+        }
+      }
+    },
+    {
+      "id": "935107fe-eb52-4316-aa85-6650e7ac40b5",
+      "name": "Catat Voucher Berhasil",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        600,
+        360
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "GANTI-ID-PG-OPS",
+          "name": "Postgres ops_writer"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE ops.compensations\nSET status = 'issued', payment_ref = '{{ $json.voucher_id || \"VOUCHER-OK\" }}', updated_at = now()\nWHERE idempotency_key = '{{ $('Catat Voucher').item.json.idempotency_key }}'\nRETURNING *;"
+      }
+    },
+    {
+      "id": "ce7d0cb7-361a-45fb-a606-599ac278ea45",
+      "name": "Notifikasi Voucher",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        360
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GANTI-ID-MOCK-API-KEY",
+          "name": "Header Auth X-Api-Key"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "http://mock-api:8080/notify",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: 'push', title: 'Voucher Kompensasi Terbit', text: 'Voucher kompensasi ' + $('Catat Voucher').item.json.amount + ' diterbitkan untuk order ' + $('Catat Voucher').item.json.order_id }) }}"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "8ee1f88b-d031-445e-88f3-5d6fc3132944",
+      "name": "Catat Usulan Refund",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        100,
+        680
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "GANTI-ID-PG-OPS",
+          "name": "Postgres ops_writer"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO ops.refund_actions (order_id, idempotency_key, amount, status, note)\nVALUES (\n  '{{ $json.order_id }}',\n  '{{ $json.ref_idempotency_key }}',\n  {{ $json.refund_amount }},\n  CASE \n    WHEN NOT {{ $json.is_captured }} THEN 'rejected'\n    WHEN {{ $json.already_refunded }} THEN 'rejected'\n    WHEN {{ $json.needs_approval }} THEN 'pending_approval' \n    ELSE 'approved' \n  END,\n  CASE\n    WHEN NOT {{ $json.is_captured }} THEN 'Order belum dibayar'\n    WHEN {{ $json.already_refunded }} THEN 'Sudah diproses sebelumnya'\n    ELSE 'Order failed: {{ $json.fail_reason }}'\n  END\n)\nON CONFLICT (idempotency_key) DO UPDATE SET updated_at = now()\nRETURNING *;"
+      }
+    },
+    {
+      "id": "ebc46e5b-6003-49b8-b434-9004f3aaa904",
+      "name": "Bisa Di-Refund?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        200,
+        680
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Tentukan Kebijakan').item.json.refund_eligible }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "68982c63-b8e8-442e-af8b-659032f05dbb",
+      "name": "Perlu Approval?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        380,
+        680
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Tentukan Kebijakan').item.json.needs_approval }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "d8969ed9-abb8-4960-92fe-8ddf99e450f9",
+      "name": "Minta Approval Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        540,
+        580
+      ],
+      "webhookId": "c8693a07-b211-4125-9aaf-018237a8c1bf",
+      "credentials": {
+        "telegramApi": {
+          "id": "GANTI-ID-TELEGRAM",
+          "name": "Telegram account"
+        }
+      },
+      "parameters": {
+        "resource": "message",
+        "operation": "sendAndWait",
+        "chatId": "={{ $('Ambil Order').item.json.ops_chat_id || '1845199518' }}",
+        "message": "={{ 'Permohonan Approval Refund Order\\n\\nOrder ID: ' + $('Catat Usulan Refund').item.json.order_id + '\\nNominal: Rp ' + $('Catat Usulan Refund').item.json.amount + '\\nAlasan: ' + ($('Ambil Order').item.json.fail_reason || 'Order failed') + '\\n\\nApakah refund ini disetujui?' }}",
+        "responseType": "approval",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "approveLabel": "Approve",
+            "disapproveLabel": "Decline"
+          }
+        }
+      }
+    },
+    {
+      "id": "caa4ad1c-9c8b-428d-9ec0-8d34b0ce9617",
+      "name": "Disetujui?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        580
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ Boolean($json.data?.approved === true || $json.approved === true || ($json.query?.action !== 'reject' && $json.query?.action !== 'decline' && $json.body?.action !== 'reject' && $json.body?.action !== 'decline')) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "3b671ddd-b205-4144-975c-c8714a73b5e8",
+      "name": "Tandai Ditolak",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1080,
+        750
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "GANTI-ID-PG-OPS",
+          "name": "Postgres ops_writer"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE ops.refund_actions\nSET status = 'rejected', note = 'Ditolak oleh Ops'\nWHERE idempotency_key = '{{ $('Catat Usulan Refund').first().json.idempotency_key }}'\nRETURNING *;"
+      }
+    },
+    {
+      "id": "09d30ee1-1da3-4f97-971c-0470402783cd",
+      "name": "Panggil Payment Refund",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1080,
+        580
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GANTI-ID-MOCK-API-KEY",
+          "name": "Header Auth X-Api-Key"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "http://mock-api:8080/payments/refunds",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $('Catat Usulan Refund').first().json.idempotency_key }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ order_id: $('Catat Usulan Refund').first().json.order_id, amount: Number($('Catat Usulan Refund').first().json.amount) }) }}",
+        "options": {
+          "retry": {
+            "retries": 2,
+            "waitBetween": 500
+          }
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "909f9182-9043-4e55-8b2c-f9dd81522db4",
+      "name": "Catat Refund Selesai",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1280,
+        580
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "GANTI-ID-PG-OPS",
+          "name": "Postgres ops_writer"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE ops.refund_actions\nSET status = 'refunded', payment_ref = '{{ $json.refund_id || \"REFUND-OK\" }}', updated_at = now()\nWHERE idempotency_key = '{{ $('Catat Usulan Refund').first().json.idempotency_key }}'\nRETURNING *;"
+      }
+    },
+    {
+      "id": "6286af1b-c830-4d65-9138-fee7002e22d8",
+      "name": "Notifikasi Refund",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1460,
+        580
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GANTI-ID-MOCK-API-KEY",
+          "name": "Header Auth X-Api-Key"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "http://mock-api:8080/notify",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: 'push', title: 'Refund Diproses', text: 'Refund sebesar Rp ' + $('Catat Usulan Refund').item.json.amount + ' untuk order ' + $('Catat Usulan Refund').item.json.order_id + ' telah berhasil diproses.' }) }}"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "be7e79b7-990d-4a75-b308-e6b31c829295",
+      "name": "Catat Dead-Letter Payment",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1280,
+        750
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "GANTI-ID-PG-OPS",
+          "name": "Postgres ops_writer"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO ops.dead_letter (workflow, node, execution_id, business_key, error_message, payload, attempts, status)\nVALUES (\n  'WF4',\n  'Panggil Payment Refund',\n  '{{ $execution.id }}',\n  '{{ $('Catat Usulan Refund').item.json.order_id }}',\n  '{{ ($json.message || \"Payment service unavailable\").replace(/'/g, \"''\") }}',\n  '{{ JSON.stringify($json) }}'::jsonb,\n  3,\n  'open'\n)\nRETURNING *;"
+      }
+    },
+    {
+      "id": "14c2c0a7-da84-4f7e-857c-4bf9ddf120be",
+      "name": "Gagal: Payment Down",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1460,
+        750
+      ],
+      "parameters": {
+        "errorMessage": "Payment API gagal setelah seluruh percobaan ulang habis. Kejadian dicatat ke dead-letter."
+      }
+    }
+  ],
+  "connections": {
+    "Terima Event": {
+      "main": [
+        [
+          {
+            "node": "Ambil Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ambil Order": {
+      "main": [
+        [
+          {
+            "node": "Tentukan Kebijakan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tentukan Kebijakan": {
+      "main": [
+        [
+          {
+            "node": "Jenis Event?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jenis Event?": {
+      "main": [
+        [
+          {
+            "node": "Catat Voucher",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Catat Usulan Refund",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Catat Voucher": {
+      "main": [
+        [
+          {
+            "node": "Voucher Sudah Ada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Voucher Sudah Ada?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Panggil Payment Voucher",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Panggil Payment Voucher": {
+      "main": [
+        [
+          {
+            "node": "Catat Voucher Berhasil",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Catat Voucher Berhasil": {
+      "main": [
+        [
+          {
+            "node": "Notifikasi Voucher",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Catat Usulan Refund": {
+      "main": [
+        [
+          {
+            "node": "Bisa Di-Refund?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bisa Di-Refund?": {
+      "main": [
+        [
+          {
+            "node": "Perlu Approval?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Perlu Approval?": {
+      "main": [
+        [
+          {
+            "node": "Minta Approval Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Panggil Payment Refund",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Minta Approval Telegram": {
+      "main": [
+        [
+          {
+            "node": "Disetujui?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Disetujui?": {
+      "main": [
+        [
+          {
+            "node": "Panggil Payment Refund",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tandai Ditolak",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Panggil Payment Refund": {
+      "main": [
+        [
+          {
+            "node": "Catat Refund Selesai",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Catat Dead-Letter Payment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Catat Refund Selesai": {
+      "main": [
+        [
+          {
+            "node": "Notifikasi Refund",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Catat Dead-Letter Payment": {
+      "main": [
+        [
+          {
+            "node": "Gagal: Payment Down",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Jakarta",
+    "saveExecutionProgress": false,
+    "saveManualExecutions": true
+  }
+}

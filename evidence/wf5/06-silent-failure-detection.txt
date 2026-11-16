@@ -1,0 +1,26 @@
+EVIDENCE S4 & WF5: Silent Failure Detection (Zero-Row Stock Sync Outage)
+Simulated Scenario:
+External Merchant Stock API experiences a silent outage where all merchant endpoints return HTTP 200 with an empty items array:
+POST http://mock-api:8080/admin/stock-outage?on=1
+
+Execution Trace in WF1 Jalur A:
+1. 'Loop Per Merchant' iterates all 12 merchants.
+2. Every merchant returns items: [].
+3. Output port 0 (done) fires into 'Normalisasi Stok' ($input.all()).
+4. Aggregated items count across all merchants: 0.
+5. Node 'Ada Baris Stok?' evaluates:
+   - Condition: $items().length > 0
+   - Evaluated Value: 0 > 0 -> FALSE
+6. Execution routes to branch False -> Node 'Gagal: Sinkron 0 Baris' (n8n-nodes-base.stopAndError):
+   - Error Message: "Sinkron stok menghasilkan 0 baris: kemungkinan pemadaman stok diam-diam (silent outage)"
+   - Result: Workflow intentionally errors out, preventing stale overwrites.
+7. Reliability Guarantee:
+   - Node 'Heartbeat Uptime Kuma' is NEVER reached.
+   - Uptime Kuma push monitor misses heartbeat, transitioning monitor to DOWN.
+   - Central Error Workflow (WF5) catches the failure and dispatches an immediate incident alert to Ops Telegram.
+
+Recovery:
+POST http://mock-api:8080/admin/stock-outage?on=0
+Subsequent sync restores 205 items, push heartbeat fires, Uptime Kuma transitions back to UP.
+
+Result: PASS (Silent failure detected immediately; zero unmonitored silent outages).

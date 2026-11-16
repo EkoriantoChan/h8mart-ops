@@ -1,0 +1,4 @@
+EVIDENCE C2: Automatic Refund for Small Failed Order (<= Rp100k)
+Event: {"event": "order.failed", "order_id": "HM-SP-003", "reason": "kurir_tidak_ada"}
+ops.refund_actions entry:
+HM-SP-003|ref-HM-SP-003|80000|refunded|RF-00001

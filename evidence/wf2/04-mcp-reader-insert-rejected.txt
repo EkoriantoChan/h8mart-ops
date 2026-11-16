@@ -1,0 +1,5 @@
+EVIDENCE M1: mcp_reader INSERT Rejected
+Command: INSERT INTO core.merchant_stock ... as mcp_reader
+Database Response:
+ERROR: ERROR:  cannot execute INSERT in a read-only transaction
+Status: PASS (Permission Denied / Read-Only)

@@ -1,0 +1,32 @@
+EVIDENCE C6 & C7: Payment API Retry on 503 and Permanent Fallback
+Target: Mock Payment API (/payments/refunds)
+
+1. Transient Gateway Outage (C6: HM-SP-008):
+   - Admin Trigger: POST /admin/fail-next?n=1 (Simulates 1 transient 503 error)
+   - Event: event-order-failed-retry.json (order_id: HM-SP-008)
+   - Execution Behavior:
+     - Attempt 1: Payment gateway responds HTTP 503 {"error":"payment_gateway_unavailable"}
+     - n8n Node Configuration: retryOnFail: true, maxTries: 3, waitBetweenTries: 1000ms
+     - Attempt 2 (Retry): Payment gateway responds HTTP 201 {"refund_id":"RF-00004","order_id":"HM-SP-008","amount":80000,"status":"succeeded","replayed":false}
+   - Database Verification:
+     SELECT order_id, amount, status, payment_ref FROM ops.refund_actions WHERE order_id = 'HM-SP-008';
+     HM-SP-008 | 80000 | refunded | RF-00004
+   - Result: PASS (Transient error retried and succeeded automatically).
+
+2. Permanent Gateway Outage (C7: HM-SP-099):
+   - Mock API Behavior: Orders ending with '-099' intentionally reject all payment attempts with HTTP 503.
+   - Execution Behavior:
+     - Attempt 1: HTTP 503
+     - Attempt 2 (Retry): HTTP 503
+     - Attempt 3 (Retry): HTTP 503 (All retries exhausted)
+     - Execution branches to error output port -> 'Catat Dead-Letter Payment'
+   - Dead-Letter Database Record:
+     SELECT id, workflow, node, business_key, error_message, attempts, status FROM ops.dead_letter WHERE business_key = 'HM-SP-099';
+     id: 2
+     workflow: WF4 Kompensasi dan Refund
+     node: Panggil Payment Refund
+     business_key: HM-SP-099
+     error_message: Payment service unavailable / 503
+     attempts: 3
+     status: open
+   - Result: PASS (Permanent payment failure safely isolated in ops.dead_letter without crashing instance).

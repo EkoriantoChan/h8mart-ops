@@ -1,0 +1,5 @@
+EVIDENCE O3: Order Low Stock Accepted with Warning (200)
+Payload: {"event": "order.created", "order_id": "HM-TEST-TIPIS-003", "customer_id": "C0102", "merchant_id": "M001", "total_amount": 120000, "items": [{"sku": "SKU-004", "qty": 4}]}
+Response Code: 200
+Response Body:
+{"status":"accepted","order_id":"HM-TEST-TIPIS-003","warning":"Stok produk menipis (sisa <= 2 unit)","message":"Order berhasil diterima dan dicatat ke sistem"}

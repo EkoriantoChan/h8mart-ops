@@ -1,0 +1,17 @@
+EVIDENCE S1: Stock Sync Idempotency
+- Merchant Stock Count after Sync 1: 205
+- Merchant Stock Count after Sync 2: 205
+- Null product_id Count (Merged with core.products via sku): 0
+- Status: PASS (Expected exactly 205 items, zero duplicates, zero nulls)
+
+Sample rows from core.merchant_stock:
+M001|P001|7|2026-11-11 05:54:50.260685+07
+M001|P004|6|2026-11-11 05:54:50.260685+07
+M001|P005|19|2026-11-11 05:54:50.260685+07
+M001|P007|5|2026-11-11 05:54:50.260685+07
+M001|P008|18|2026-11-11 05:54:50.260685+07
+M001|P011|17|2026-11-11 05:54:50.260685+07
+M001|P012|30|2026-11-11 05:54:50.260685+07
+M001|P014|16|2026-11-11 05:54:50.260685+07
+M001|P015|29|2026-11-11 05:54:50.260685+07
+M001|P018|28|2026-11-11 05:54:50.260685+07

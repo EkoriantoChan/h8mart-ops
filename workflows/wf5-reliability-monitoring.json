@@ -1,0 +1,141 @@
+{
+  "name": "WF5 Reliability dan Monitoring",
+  "nodes": [
+    {
+      "id": "75365f53-1a2a-43d9-9e48-5158beaffe7a",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        100
+      ]
+    },
+    {
+      "id": "e4dd5c50-6578-4e0b-a014-9983eb0d56fb",
+      "name": "Format Pesan Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        100
+      ],
+      "parameters": {
+        "jsCode": "const err = $json.execution?.error || {};\nconst wf = $json.workflow || {};\nconst execId = $json.execution?.id || 'unknown';\n\nconst wfName = wf.name || 'Unknown Workflow';\nconst nodeName = err.node?.name || 'Unknown Node';\nconst errMsg = err.message || 'Unknown error occurred';\n\nconst alertText = `🚨 *H8Mart Ops Incident Alert*\\n` +\n  `*Workflow:* ${wfName}\\n` +\n  `*Node:* ${nodeName}\\n` +\n  `*Execution ID:* ${execId}\\n` +\n  `*Error:* ${errMsg}\\n` +\n  `*Time:* ${new Date().toISOString()}`;\n\nreturn [{\n  json: {\n    workflow_name: wfName,\n    node_name: nodeName,\n    execution_id: execId,\n    error_message: errMsg,\n    alert_text: alertText\n  }\n}];"
+      }
+    },
+    {
+      "id": "12e975ac-efd4-4b15-9490-401f8477f6aa",
+      "name": "Catat Dead-Letter Error",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        540,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "GANTI-ID-PG-OPS",
+          "name": "Postgres ops_writer"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO ops.dead_letter (workflow, node, execution_id, business_key, error_message, payload, attempts, status)\nVALUES (\n  '{{ $json.workflow_name }}',\n  '{{ $json.node_name }}',\n  '{{ $json.execution_id }}',\n  'EXEC-{{ $json.execution_id }}',\n  '{{ ($json.error_message || \"\").replace(/'/g, \"''\") }}',\n  '{{ JSON.stringify($json) }}'::jsonb,\n  1,\n  'open'\n)\nRETURNING *;"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "4240c440-aca8-409b-9cb9-457409836110",
+      "name": "Alert Telegram Error",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        540,
+        200
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "GANTI-ID-TELEGRAM",
+          "name": "Telegram account"
+        }
+      },
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "123456789",
+        "text": "={{ $json.alert_text }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "bec31088-b47f-4a5b-a102-cc6d2d1699aa",
+      "name": "Alert Notification Error",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GANTI-ID-MOCK-API-KEY",
+          "name": "Header Auth X-Api-Key"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "http://mock-api:8080/notify",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: 'ops-alerts', title: 'Incident ' + $json.workflow_name, text: $json.alert_text }) }}"
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Format Pesan Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Pesan Error": {
+      "main": [
+        [
+          {
+            "node": "Catat Dead-Letter Error",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Alert Telegram Error",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Alert Notification Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Jakarta",
+    "saveExecutionProgress": false,
+    "saveManualExecutions": true
+  }
+}

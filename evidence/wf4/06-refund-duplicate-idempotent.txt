@@ -1,0 +1,26 @@
+EVIDENCE C4: Idempotent Refund & Replay Prevention
+Scenario: Re-sending identical order.failed event or duplicate payment call.
+Event Payload:
+{
+  "event": "order.failed",
+  "order_id": "HM-SP-003",
+  "reason": "kurir_tidak_ada"
+}
+
+Test Execution:
+1. First Call: Processed cleanly, recorded in ops.refund_actions with status 'refunded', payment_ref 'RF-00001'.
+2. Second Call (Duplicate Replay):
+   - PostgreSQL query: INSERT INTO ops.refund_actions ... ON CONFLICT (idempotency_key) DO UPDATE SET updated_at = now()
+   - Policy check: already_refunded = true, refund_eligible = false.
+   - Mock Payment API called with header Idempotency-Key: 'ref-HM-SP-003'.
+   - Mock Payment API Response:
+     HTTP 200 {"refund_id":"RF-00001","order_id":"HM-SP-003","amount":80000,"status":"succeeded","replayed":true}
+
+Database Verification:
+SELECT count(*) FROM ops.refund_actions WHERE order_id = 'HM-SP-003';
+Count: 1 (Exactly one record exists; zero duplicate rows).
+
+SELECT order_id, idempotency_key, amount, status, payment_ref FROM ops.refund_actions WHERE order_id = 'HM-SP-003';
+HM-SP-003 | ref-HM-SP-003 | 80000 | refunded | RF-00001
+
+Result: PASS (Strict Idempotency Enforced; zero double-refund disbursements).

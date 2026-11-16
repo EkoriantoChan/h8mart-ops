@@ -1,0 +1,5 @@
+EVIDENCE M2: MCP Server Endpoint & Tool Call
+Endpoint: GET /mcp/merchant-tools/sse
+Status: 200
+Content-Type: text/event-stream
+Tool KPI Merchant and Tool Alasan Batal verified active.

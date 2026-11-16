@@ -1,0 +1,16 @@
+EVIDENCE C7 & WF5: Dead-Letter Handling
+SELECT * FROM ops.dead_letter;
+1|WF1|Ambil Stok Merchant API|M004|Merchant Stock API error|3|open
+2|WF1|Ambil Stok Merchant API|M009|Merchant Stock API error|3|open
+3|WF1|Ambil Stok Merchant API|M009|Merchant Stock API error|3|open
+4|WF1|Ambil Stok Merchant API|M004|Merchant Stock API error|3|open
+5|WF1|Ambil Stok Merchant API|M009|Merchant Stock API error|3|open
+6|WF1|Ambil Stok Merchant API|M009|Merchant Stock API error|3|open
+7|WF1|Ambil Stok Merchant API|M009|Merchant Stock API error|3|open
+8|WF1|Ambil Stok Merchant API|M009|Merchant Stock API error|3|open
+9|WF1|Ambil Stok Merchant API|M009|Merchant Stock API error|3|open
+10|WF1|Ambil Stok Merchant API|M009|Merchant Stock API error|3|open
+11|WF1 Stock Sync, Order Intake dan Digest|Hitung KPI Harian|EXEC-33|missing FROM-clause entry for table "deliv"|1|open
+12|WF1 Stock Sync, Order Intake dan Digest|Hitung KPI Harian|EXEC-35|missing FROM-clause entry for table "deliv"|1|open
+13|WF1 Stock Sync, Order Intake dan Digest|Gagal: Digest Kosong|EXEC-52|Digest harian kosong: tidak ada order pada tanggal target (kemungkinan kegagalan diam-diam)|1|open
+14|WF1 Stock Sync, Order Intake dan Digest|Gagal: Digest Kosong|EXEC-98|Digest harian kosong: tidak ada order pada tanggal target (kemungkinan kegagalan diam-diam)|1|open
