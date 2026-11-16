@@ -214,7 +214,7 @@
       ],
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({\n  status: 'eskalasi_cs',\n  jawaban: $('Parse Output AI').item.json?.jawaban || 'Pertanyaan Anda telah kami teruskan ke Customer Service H8Mart untuk penanganan lebih lanjut.',\n  data_dipakai: $('Parse Output AI').item.json?.data_dipakai || [],\n  confidence: $('Parse Output AI').item.json?.confidence || 0,\n  alasan: $('Parse Output AI').item.json?.alasan || 'Memerlukan eskalasi CS'\n}) }}",
+        "responseBody": "={{ JSON.stringify({\n  status: 'eskalasi_cs',\n  jawaban: $json.ai_answer || 'Pertanyaan Anda telah kami teruskan ke Customer Service H8Mart untuk penanganan lebih lanjut.',\n  data_dipakai: [],\n  confidence: 0,\n  alasan: $json.reason || 'Memerlukan eskalasi CS'\n}) }}",
         "options": {
           "responseCode": 200
         }
