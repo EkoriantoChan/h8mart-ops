@@ -1,9 +1,9 @@
-EVIDENCE DEPLOY: Docker Compose Status
+EVIDENCE DEPLOY 01: Production VPS Docker Compose Status (AWS EC2 Jakarta / ap-southeast-3)
 
-NAME                        IMAGE                            COMMAND                  SERVICE        CREATED       STATUS                 PORTS
-h8mart-ops-mock-api-1       node:24-alpine                   "docker-entrypoint.s…"   mock-api       3 hours ago   Up 3 hours             127.0.0.1:8080->8080/tcp
-h8mart-ops-n8n-1            docker.n8n.io/n8nio/n8n:2.44.7   "tini -- /docker-ent…"   n8n            3 hours ago   Up 7 minutes           127.0.0.1:5690->5678/tcp
-h8mart-ops-postgres-1       postgres:16.15-alpine            "docker-entrypoint.s…"   postgres       3 hours ago   Up 3 hours (healthy)   127.0.0.1:5440->5432/tcp
-h8mart-ops-task-runners-1   n8nio/runners:2.44.7             "tini -- /usr/local/…"   task-runners   3 hours ago   Up 3 hours             5680/tcp
-h8mart-ops-uptime-kuma-1    louislam/uptime-kuma:2.5.8       "/usr/bin/dumb-init …"   uptime-kuma    3 hours ago   Up 3 hours (healthy)   127.0.0.1:3011->3001/tcp
-
+NAME                        IMAGE                            COMMAND                  SERVICE        CREATED          STATUS                    PORTS
+h8mart-ops-caddy-1          caddy:2.11.7-alpine              "caddy run --config …"   caddy          13 minutes ago   Up 13 minutes             0.0.0.0:80->80/tcp, [::]:80->80/tcp, 0.0.0.0:443->443/tcp, [::]:443->443/tcp, 443/udp, 2019/tcp
+h8mart-ops-mock-api-1       node:24-alpine                   "docker-entrypoint.s…"   mock-api       13 minutes ago   Up 13 minutes             127.0.0.1:8080->8080/tcp
+h8mart-ops-n8n-1            docker.n8n.io/n8nio/n8n:2.44.7   "tini -- /docker-ent…"   n8n            13 minutes ago   Up 4 minutes              5678/tcp
+h8mart-ops-postgres-1       postgres:16.15-alpine            "docker-entrypoint.s…"   postgres       13 minutes ago   Up 13 minutes (healthy)   127.0.0.1:5440->5432/tcp
+h8mart-ops-task-runners-1   n8nio/runners:2.44.7             "tini -- /usr/local/…"   task-runners   13 minutes ago   Up 13 minutes             5680/tcp
+h8mart-ops-uptime-kuma-1    louislam/uptime-kuma:2.5.8       "/usr/bin/dumb-init …"   uptime-kuma    13 minutes ago   Up 13 minutes (healthy)   127.0.0.1:3011->3001/tcp
