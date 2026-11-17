@@ -50,7 +50,7 @@ flowchart LR
         DB_OPS[("PostgreSQL: ops_writer<br/>• core.merchant_stock<br/>• ops.sync_runs, ops.dead_letter<br/>• ops.compensations, ops.refund_actions<br/>• ops.tickets")]
         DB_READ[("PostgreSQL: mcp_reader<br/>• core.* (Read-Only)<br/>• ops.telegram_merchants")]
         MOCK_API["Mock API (:8080)<br/>• GET /merchants/{id}/stock<br/>• POST /payments/refunds<br/>• POST /payments/vouchers<br/>• POST /notify"]
-        KUMA["Uptime Kuma (:3011)<br/>• Push Monitor (Token Heartbeat)"]
+        KUMA["Uptime Kuma (:3001)<br/>• Push Monitor (Token Heartbeat)"]
         TG_OPS["Telegram H8Mart Bot<br/>• Daily Digest (07:00)<br/>• High-Value Refund Approval<br/>• Incident Alerts & Merchant Chat"]
     end
 

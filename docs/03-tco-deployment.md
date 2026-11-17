@@ -104,7 +104,7 @@ flowchart TD
 
         subgraph DOCKER_NET["Internal Docker Network (Bridge)"]
             N8N["n8n Automation Engine (:5678)<br/>• 6 Published Workflows<br/>• SQLite Internal Database"]
-            RUNNERS["n8n Task Runners (:5680)<br/>• Isolated JS/Python Execution"]
+            RUNNERS["n8n Task Runners (:5679)<br/>• Isolated JS/Python Execution"]
             POSTGRES[("PostgreSQL 16 (:5432)<br/>• Database: h8mart<br/>• ops_writer & mcp_reader")]
             MOCK_API["Mock API (:8080)<br/>• Stock, Payments, Notify"]
             KUMA["Uptime Kuma (:3001)<br/>• Push Heartbeat Monitor"]
@@ -117,7 +117,7 @@ flowchart TD
     DUCKDNS -.->|Resolves 13.236.84.99| CADDY
 
     CADDY -->|Reverse Proxy :5678| N8N
-    N8N <-->|Broker Tasks :5680| RUNNERS
+    N8N <-->|Broker Tasks :5679| RUNNERS
     N8N <-->|Native TCP :5432| POSTGRES
     N8N <-->|HTTP REST :8080| MOCK_API
     N8N -->|Push Heartbeat :3001| KUMA
