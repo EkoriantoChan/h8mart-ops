@@ -78,6 +78,60 @@ Operating an e-commerce platform handling Indonesian consumers requires strict a
 
 ## 3. Final Production Deployment Plan
 
+### 3.1 Deployment Architecture Diagram
+
+```mermaid
+---
+config:
+  look: classic
+  flowchart:
+    subGraphTitleMargin:
+      top: 12
+      bottom: 12
+---
+flowchart TD
+    subgraph INTERNET["Public Internet & Clients"]
+        USER["Customer & Merchant Clients"]
+        TG_PLATFORM["Telegram Platform Cloud"]
+        EVALUATOR["Course Evaluator / External Smoke Test"]
+        DUCKDNS["DuckDNS Dynamic DNS Service"]
+    end
+
+    subgraph AWS_EC2["AWS EC2 Jakarta (ap-southeast-3) · Ubuntu 24.04 (t3.small)"]
+        subgraph PERIMETER["Security Perimeter (SG: 80, 443, 22)"]
+            CADDY["Caddy Reverse Proxy (:80, :443)<br/>• Let's Encrypt Auto-TLS<br/>• TLS Termination & Proxy Pass"]
+        end
+
+        subgraph DOCKER_NET["Internal Docker Network (Bridge)"]
+            N8N["n8n Automation Engine (:5678)<br/>• 6 Published Workflows<br/>• SQLite Internal Database"]
+            RUNNERS["n8n Task Runners (:5680)<br/>• Isolated JS/Python Execution"]
+            POSTGRES[("PostgreSQL 16 (:5432)<br/>• Database: h8mart<br/>• ops_writer & mcp_reader")]
+            MOCK_API["Mock API (:8080)<br/>• Stock, Payments, Notify"]
+            KUMA["Uptime Kuma (:3001)<br/>• Push Heartbeat Monitor"]
+        end
+    end
+
+    USER -->|HTTPS :443| CADDY
+    TG_PLATFORM -->|Webhook Updates :443| CADDY
+    EVALUATOR -->|Production Webhooks :443| CADDY
+    DUCKDNS -.->|Resolves 13.236.84.99| CADDY
+
+    CADDY -->|Reverse Proxy :5678| N8N
+    N8N <-->|Broker Tasks :5680| RUNNERS
+    N8N <-->|Native TCP :5432| POSTGRES
+    N8N <-->|HTTP REST :8080| MOCK_API
+    N8N -->|Push Heartbeat :3001| KUMA
+    N8N -.->|Outbound HTTPS| TG_PLATFORM
+
+    linkStyle default stroke-width:2px
+    classDef navy fill:#1C4587,stroke:#1C4587,color:#FFFFFF
+    classDef orange fill:#F06634,stroke:#F06634,color:#FFFFFF
+    class USER,TG_PLATFORM,EVALUATOR,DUCKDNS orange
+    class CADDY,N8N,RUNNERS,POSTGRES,MOCK_API,KUMA navy
+```
+
+### 3.2 Technical Specification Matrix
+
 | Component | Technical Specification | Configuration & Operational Detail |
 | :--- | :--- | :--- |
 | **Cloud Provider & Region** | Amazon Web Services (AWS) | Region: **Asia Pacific (Jakarta) `ap-southeast-3`** |
@@ -86,8 +140,8 @@ Operating an e-commerce platform handling Indonesian consumers requires strict a
 | **Container Stack (`compose.yaml` + `compose.vps.yaml`)** | 6 Services Running | 1. `n8n` (v2.44.7, automation engine)<br/>2. `task-runners` (v2.44.7, isolated code execution)<br/>3. `postgres` (v16.15-alpine, H8Mart relational database)<br/>4. `mock-api` (vnode:24-alpine, stock, payment, notification APIs)<br/>5. `uptime-kuma` (v2.5.8, heartbeat push monitor)<br/>6. `caddy` (reverse proxy with automated Let's Encrypt HTTPS) |
 | **Networking & Security Group** | AWS Security Group | • Ingress: Port 80, 443 (Worldwide `0.0.0.0/0`), Port 22 (SSH from My IP only)<br/>• Ports 5690, 5440, 8080, 3011 are **not exposed** to internet (bound to localhost / Docker network) |
 | **Database for n8n State** | Embedded SQLite | Stored in persistent Docker named volume `n8n_data`. Pruned every 14 days (336 hours) to prevent disk growth. |
-| **Domain & TLS Setup** | DuckDNS + Caddy | Subdomain: `https://<domain>.duckdns.org`. Caddy automatically provisions and renews Let's Encrypt TLS certificates. |
-| **Evaluator Production Webhooks** | Public HTTPS Endpoints | • WF1 Order Intake: `https://<domain>.duckdns.org/webhook/order-created`<br/>• WF3 AI Merchant: `https://<domain>.duckdns.org/webhook/merchant-assistant`<br/>• WF4 Events: `https://<domain>.duckdns.org/webhook/ops-events`<br/>• Header Authentication: `X-H8Mart-Token: <token>` |
+| **Domain & TLS Setup** | DuckDNS + Caddy | Subdomain: `https://h8mart-ekorianto.duckdns.org`. Caddy automatically provisions and renews Let's Encrypt TLS certificates. |
+| **Evaluator Production Webhooks** | Public HTTPS Endpoints | • WF1 Order Intake: `https://h8mart-ekorianto.duckdns.org/webhook/order-created`<br/>• WF3 AI Merchant: `https://h8mart-ekorianto.duckdns.org/webhook/merchant-assistant`<br/>• WF4 Events: `https://h8mart-ekorianto.duckdns.org/webhook/ops-events`<br/>• Header Authentication: `X-H8Mart-Token: h8mart-webhook-lab` |
 | **Backup & Disaster Recovery** | Automated Volume Snapshots | Nightly `pg_dump` of `h8mart` PostgreSQL database and tarball of `n8n_data` SQLite volume to external S3 / EBS snapshot. Restoration verified via `docker compose down -v && docker compose up -d`. |
 
 ---
@@ -98,6 +152,8 @@ All verification assets are archived in the repository under `evidence/deploy/`:
 
 | Verification Item | Evidence File Path | Verification Description |
 | :--- | :--- | :--- |
-| **Container Health & Status** | [`01-compose-ps.txt`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/deploy/01-compose-ps.txt) | Confirms all 6 Docker services are running and healthy (`postgres:16.15` healthy, n8n active). |
-| **External Smoke Test** | `evidence/deploy/02-curl-smoke-test.txt` | Proof of external `curl` calls hitting the production HTTPS webhook from outside the VPS network. |
-| **Schema & Environment Audit** | `evidence/deploy/03-schema-and-env-audit.txt` | Audit confirming `.env` is uncommitted, zero secret leakage, and PostgreSQL roles enforce read-only segregation. |
+| **Valid HTTPS in Browser** | [`01-https.png`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/deploy/01-https.png) | Browser screenshot showing valid Let's Encrypt SSL certificate and secure padlock on domain `https://h8mart-ekorianto.duckdns.org`. |
+| **Container Health & Status** | [`02-compose-ps.png`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/deploy/02-compose-ps.png) & [`01-compose-ps.txt`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/deploy/01-compose-ps.txt) | Confirms all 6 Docker services are running and healthy (`caddy`, `n8n`, `postgres`, `mock-api`, `task-runners`, `uptime-kuma`). |
+| **All Workflows Published** | [`All Workflow Published.png`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/deploy/All%20Workflow%20Published.png) | Complete n8n overview showing all workflows (WF1–WF5, WF3b) with active Published status. |
+| **External Smoke Test** | [`02-curl-smoke-test.txt`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/deploy/02-curl-smoke-test.txt) | Proof of external `curl` calls hitting the production HTTPS webhook from outside the VPS network. |
+| **Schema & Environment Audit** | [`03-schema-and-env-audit.txt`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/deploy/03-schema-and-env-audit.txt) | Audit confirming `.env` is uncommitted, zero secret leakage, and PostgreSQL roles enforce read-only segregation. |
