@@ -4,6 +4,8 @@
 **Evaluation Target Date:** November 2026  
 **Reference Anchor Date:** `2026-11-10` (`core.data_info.hari_data_terakhir`)  
 **Deployment Infrastructure:** AWS EC2 Jakarta Region (`ap-southeast-3`), Docker Compose, Caddy HTTPS, DuckDNS  
+**Public HTTPS Domain (DuckDNS):** [https://h8mart-ekorianto.duckdns.org](https://h8mart-ekorianto.duckdns.org)  
+**Telegram Ops Bot:** [@H8MartEko_Ops_Bot](https://t.me/H8MartEko_Ops_Bot)  
 
 ---
 

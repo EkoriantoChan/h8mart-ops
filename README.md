@@ -2,6 +2,14 @@
 
 Dikerjakan **individu**. Dinilai dengan **rubric penilaian** (7 bagian, total 100; poin di [bagian 6](#6-penilaian)). Tidak ada presentasi: nilai berasal dari isi repo dan smoke test ke Production URL.
 
+> [!IMPORTANT]
+> ### 🌐 Live Production Deployment
+> - **Public HTTPS Domain (DuckDNS):** [https://h8mart-ekorianto.duckdns.org](https://h8mart-ekorianto.duckdns.org)
+> - **Telegram Ops Bot:** [@H8MartEko_Ops_Bot](https://t.me/H8MartEko_Ops_Bot)
+> - **Deployment Infrastructure:** AWS EC2 Jakarta Region (`ap-southeast-3`), Ubuntu 24.04 LTS, Docker Compose, Caddy Reverse Proxy (Auto-TLS)
+> - **Status:** Semua 5 workflow (WF1–WF5 + WF3b) berstatus **Published** & aktif
+> - **Panduan Verifikasi Penilai:** [docs/05-readme-solusi.md](docs/05-readme-solusi.md)
+
 > **Mulai di sini**
 >
 > 1. Buat repo **public** di akun GitHub kalian dari isi folder `set_1` ([bagian 5](#5-yang-dikumpulkan)), kirim link-nya ke instruktur lewat DM, lalu ikuti [SETUP.md](SETUP.md) sampai stack hidup dan data terbaca.
