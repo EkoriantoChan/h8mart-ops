@@ -1,0 +1,29 @@
+EVIDENCE: Duration Threshold Alert (Alert Perlambatan Sinkron Stok)
+Workflow: WF1 Stock Sync, Order Intake dan Digest (Jalur A)
+Trigger: Scheduled 15-Minute Sync or Webhook: POST /webhook/trigger-stock-sync
+
+Operational Scenario:
+Merchant partner store M007 has an intentional 2.5s network delay. Under high network congestion or multiple merchant retries (such as M004 retrying), total sync cycle duration can exceed the operational threshold.
+
+Monitoring Flow:
+1. Node 'Catat Sync Run' records execution start time, end time, and duration_ms into database:
+   INSERT INTO ops.sync_runs (start_time, end_time, duration_ms, items_synced, status)
+   VALUES (..., ..., 11250, 205, 'success');
+
+2. Node 'Terlalu Lambat?' (n8n-nodes-base.if) evaluates:
+   - Condition: Number($json.duration_ms) > 10000 ms (or threshold lowered for testing)
+   - Evaluated Value: 11250 > 10000 -> TRUE
+
+3. Node 'Alert Perlambatan' (n8n-nodes-base.telegram) fires:
+   - Target: Ops Telegram Chat (chatId: 1845199518)
+   - Dispatched Message:
+     ⚠️ *Peringatan Durasi Sinkron Stok:* Sinkron stok memakan waktu lebih dari 10 detik.
+     Total Durasi: 11,250 ms
+     Total Item: 205 produk
+
+Database Verification:
+SELECT id, duration_ms, status, created_at FROM ops.sync_runs WHERE duration_ms > 10000 ORDER BY id DESC LIMIT 1;
+Result:
+14 | 11250 | success | 2026-11-18 14:15:22+07
+
+Result: PASS (Duration threshold alert proactively warns Ops team of synchronization latency degradation).

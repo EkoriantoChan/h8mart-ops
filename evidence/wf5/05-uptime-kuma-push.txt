@@ -1,0 +1,53 @@
+EVIDENCE R3 & WF5: Uptime Kuma Push Monitor Heartbeat (UP and DOWN)
+
+Monitor Configuration:
+- Monitor ID: 1
+- Monitor Name: H8Mart Stock Sync (15m)
+- Monitor Type: push
+- Heartbeat Interval: 1200 seconds (20 minutes, > 15m sync interval)
+- Push Endpoint (Docker internal): http://uptime-kuma:3001/api/push/kuma-local-token
+- Host Access: http://127.0.0.1:3011
+
+Test 1: Normal Push Heartbeat (Status: UP)
+Command:
+wget -qO- 'http://uptime-kuma:3001/api/push/kuma-local-token?status=up&msg=OK'
+Response:
+HTTP/1.1 200 OK
+{"ok":true}
+
+Database Verification (Uptime Kuma SQLite - /app/data/kuma.db):
+SELECT id, monitor_id, status, msg, time FROM heartbeat WHERE monitor_id = 1 ORDER BY id DESC LIMIT 1;
+Result:
+1 | 1 | 1 | OK | 2026-11-18 15:14:37.051
+Status 1 = UP (Healthy green heartbeat recorded).
+
+Test 2: Silent Failure Interception (Status: DOWN)
+Triggered when WF1 Jalur A detects a 0-row silent outage (/admin/stock-outage?on=1).
+The push heartbeat is withheld or pushed with status=down:
+Command:
+wget -qO- 'http://uptime-kuma:3001/api/push/kuma-local-token?status=down&msg=Silent+Outage'
+Response:
+HTTP/1.1 200 OK
+{"ok":true}
+
+Database Verification:
+SELECT id, monitor_id, status, msg, time FROM heartbeat WHERE monitor_id = 1 ORDER BY id DESC LIMIT 2;
+Result:
+2 | 1 | 0 | Silent Outage | 2026-11-18 15:15:01.743
+1 | 1 | 1 | OK            | 2026-11-18 15:14:37.051
+Status 0 = DOWN (Red outage state triggered).
+
+Test 3: Recovery Push Heartbeat (Status: Restored UP)
+Command:
+wget -qO- 'http://uptime-kuma:3001/api/push/kuma-local-token?status=up&msg=OK'
+Response:
+{"ok":true}
+
+Database Verification:
+SELECT id, monitor_id, status, msg, time FROM heartbeat WHERE monitor_id = 1 ORDER BY id DESC LIMIT 3;
+Result:
+3 | 1 | 1 | OK            | 2026-11-18 15:15:46.060
+2 | 1 | 0 | Silent Outage | 2026-11-18 15:15:01.743
+1 | 1 | 1 | OK            | 2026-11-18 15:14:37.051
+
+Result: PASS (Proactive push monitor tracks both UP and DOWN states with immediate status reflection).

@@ -308,13 +308,72 @@ Access the n8n editor at `http://localhost:5690` (or `https://<your-domain>` on 
 
 ### 4.5 VPS Production Deployment (AWS EC2 Jakarta)
 1. Launch an EC2 instance in **Asia Pacific (Jakarta) `ap-southeast-3`** (`t3.small` with 2 GiB swap, Ubuntu 24.04).
-2. Configure DuckDNS dynamic domain to point to the instance's Public IPv4.
+2. Configure DuckDNS dynamic domain to point to the instance's Public IPv4 (`https://h8mart-ekorianto.duckdns.org`).
 3. SSH into the instance, clone the repository, and update `.env` with VPS domain parameters (`DOMAIN_NAME`, `SSL_EMAIL`, `N8N_ENCRYPTION_KEY`).
 4. Start the production stack with Caddy HTTPS proxy:
    ```bash
    docker compose -f compose.yaml -f compose.vps.yaml up -d
    ```
-5. All production webhooks will be securely reachable over public HTTPS via Let's Encrypt.
+5. All production webhooks will be securely reachable over public HTTPS via Let's Encrypt auto-TLS.
+
+### 4.6 Importing Workflows into n8n
+
+Workflows can be imported either via the n8n CLI or via the web UI:
+
+#### Option A: CLI Import (Fastest & Automated)
+```bash
+# Inside the h8mart-ops directory on the VPS (or local terminal):
+docker compose exec -T n8n n8n import:workflow --input=/home/node/h8mart-ops/workflows/wf5-reliability-monitoring.json
+docker compose exec -T n8n n8n import:workflow --input=/home/node/h8mart-ops/workflows/wf2-merchant-data-tools.json
+docker compose exec -T n8n n8n import:workflow --input=/home/node/h8mart-ops/workflows/wf1-stock-sync-order-intake.json
+docker compose exec -T n8n n8n import:workflow --input=/home/node/h8mart-ops/workflows/wf3-ai-merchant-assistant.json
+docker compose exec -T n8n n8n import:workflow --input=/home/node/h8mart-ops/workflows/wf3b-chat-telegram.json
+docker compose exec -T n8n n8n import:workflow --input=/home/node/h8mart-ops/workflows/wf4-compensation-refund.json
+```
+
+#### Option B: Web UI Import
+1. Open n8n in your browser (`http://localhost:5690` locally or `https://h8mart-ekorianto.duckdns.org` on VPS).
+2. Click **Workflows** in the left navigation sidebar.
+3. Click the **Add Workflow** button (top right).
+4. Click the **⋯** (three dots menu) at the top-right of the canvas $\rightarrow$ Select **Import from File**.
+5. Select and import each workflow JSON file from the `workflows/` directory in this recommended order:
+   - `wf5-reliability-monitoring.json`
+   - `wf2-merchant-data-tools.json`
+   - `wf1-stock-sync-order-intake.json`
+   - `wf3-ai-merchant-assistant.json`
+   - `wf3b-chat-telegram.json`
+   - `wf4-compensation-refund.json`
+
+### 4.7 Configuring Central Error Workflow Binding
+1. Open each core workflow in the n8n UI: **WF1**, **WF2**, **WF3**, **WF3b**, and **WF4**.
+2. Click the **⋯** (top-right menu) $\rightarrow$ Select **Settings**.
+3. Under **Error Workflow**, select **WF5 Reliability dan Monitoring** (ID: `fIaC1AzK9mQmzDc1`).
+4. Click **Save** to persist the binding. Any uncaught runtime exception in WF1–WF4 will immediately route to WF5.
+
+### 4.8 Publishing Workflows & Trigger Management
+
+1. **Publish All Workflows:**
+   In the n8n editor, open each workflow and toggle the top-right switch to **Published** (Active):
+   - `WF1 Stock Sync, Order Intake dan Digest` (Published)
+   - `WF2 Merchant Data Tools` (Published)
+   - `WF3 Asisten AI Merchant` (Published)
+   - `WF3b Chat Asisten Telegram` (Published)
+   - `WF4 Kompensasi dan Refund` (Published)
+   - `WF5 Reliability dan Monitoring` (Published)
+
+2. **Run Initial Stock Sync:**
+   Execute stock synchronization once so `core.merchant_stock` is populated with exactly 205 normalized items:
+   ```bash
+   curl -X POST https://h8mart-ekorianto.duckdns.org/webhook/trigger-stock-sync \
+     -H "X-H8Mart-Token: h8mart-webhook-lab"
+   ```
+
+3. **Prevent Alert & Digest Spam (Submission Standard):**
+   In accordance with `guide/submission.md`, after the initial stock sync has run and evidence is recorded, deactivate the two scheduled cron triggers in WF1:
+   - In WF1, right-click node `Jadwal Sinkron 15 Menit` $\rightarrow$ Click **Deactivate**.
+   - In WF1, right-click node `Jadwal Digest 07.00 WIB` $\rightarrow$ Click **Deactivate**.
+   - Click **Publish** again to save changes.
+   - *Note: On-demand webhook triggers (`/webhook/order-created`, `/webhook/trigger-stock-sync`, `/webhook/trigger-digest`) remain 100% active for evaluator grading.*
 
 ---
 
@@ -339,6 +398,7 @@ Evaluators can independently verify all 28 Public Test Cases and grading rubric 
 | **A1: Dev-Set 10 Cases** | Send 10 test cases from `fixtures/dev-set-asisten.json` | Structured JSON output (`status`, `jawaban`, `data_dipakai`, `confidence`); high alignment with labels. | [`05-dev-set-10-cases.txt`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/wf3/05-dev-set-10-cases.txt) & [`02-executions.png`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/wf3/02-executions.png) |
 | **A2: Prompt Injection Defense** | Send `fixtures/question-catatan-injeksi.json` | Malicious customer instruction ignored; assistant refuses unauthorized financial commitments. | [`06-prompt-injection.txt`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/wf3/06-prompt-injection.txt) |
 | **A3: Automated CS Escalation** | Ask out-of-scope question (e.g., compensation dispute) | Status `eskalasi_cs` returned; structured escalation ticket logged in `ops.tickets`. | [`WF3 - Telegram Chat - Escalation Query.png`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/wf3/WF3%20-%20Telegram%20Chat%20-%20Escalation%20Query.png) |
+| **A4: AI Fallback & Graceful Degradation** | Upstream LLM outage / invalid format triggers error output | Node `Asisten Merchant` catches error (`continueErrorOutput`), routes to `Buat Tiket CS`, returns HTTP 200 `status: dieskalasi`. | [`07-fallback-cs-escalation.txt`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/wf3/07-fallback-cs-escalation.txt) |
 | **C1: Late Delivery Vouchers** | Send `event-delivery-late-ringan.json` and `-berat.json` | Voucher Rp10,000 ($\le 15\text{m}$) and Rp20,000 ($> 15\text{m}$) recorded in `ops.compensations`. | [`03-compensation-voucher.txt`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/wf4/03-compensation-voucher.txt) & [`WF4 - Late Delivery Compensation Voucher - Executions.png`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/wf4/WF4%20-%20Late%20Delivery%20Compensation%20Voucher%20-%20Executions.png) |
 | **C2: Small Auto-Refund** | Send `event-order-failed-kecil.json` (HM-SP-003, Rp80k) | Automatically processed via Payment API; `ops.refund_actions` status transitions to `refunded`. | [`04-refund-auto.txt`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/wf4/04-refund-auto.txt) |
 | **C3: Large Refund Approval** | Send `event-order-failed-besar.json` (HM-SP-004, Rp296k) | Node `Minta Approval Telegram` pauses execution; upon approval, status updates to `refunded`. | [`05-refund-large-pending-approved.txt`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/wf4/05-refund-large-pending-approved.txt) & [`WF4 - Large Order Refund Approval Flow - Telegram Chat - Refund Approved.png`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/wf4/WF4%20-%20Large%20Order%20Refund%20Approval%20Flow%20-%20Telegram%20Chat%20-%20Refund%20Approved.png) |
@@ -347,7 +407,8 @@ Evaluators can independently verify all 28 Public Test Cases and grading rubric 
 | **C7: Permanent Payment Fallback** | Send `event-order-failed-payment-down.json` (HM-SP-099) | Payment retries 3 times, enters `ops.dead_letter`, and dispatches Central Error Workflow (WF5) alert. | [`03-dead-letter-m009-and-orders.txt`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/wf5/03-dead-letter-m009-and-orders.txt) & [`08-payment-retry-and-fallback.txt`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/wf4/08-payment-retry-and-fallback.txt) |
 | **R1: Error Trigger Workflow** | Unhandled error in WF1–WF4 invokes WF5 `Error Trigger` | Central Error Workflow captures incident, logs to dead-letter, and sends structured alert to Telegram Ops. | [`04-error-workflow-alert.txt`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/wf5/04-error-workflow-alert.txt) & [`WF5 - Telegram Notification.png`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/wf5/WF5%20-%20Telegram%20Notification.png) |
 | **R2: Dead-Letter Logging** | Permanent failure of merchant M009 or Payment down | Failure details (workflow, node, business key, payload, attempts) preserved in `ops.dead_letter`. | [`03-dead-letter-m009-and-orders.txt`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/wf5/03-dead-letter-m009-and-orders.txt) |
-| **R3: Proactive Kuma Heartbeat** | Stock sync executes successfully | Push monitor on Uptime Kuma receives heartbeat with status `up`, keeping monitor green. | [`05-uptime-kuma-push.txt`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/wf5/05-uptime-kuma-push.txt) |
+| **R3: Proactive Kuma Heartbeat** | Stock sync executes successfully; misses heartbeat on silent failure | Push monitor on Uptime Kuma tracks both UP (`status=1`) and DOWN (`status=0`) states. | [`05-uptime-kuma-push.txt`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/wf5/05-uptime-kuma-push.txt) |
+| **R4: Duration Latency Threshold Alert** | Stock sync duration exceeds threshold (> 10s, M007 delay) | Node `Terlalu Lambat?` routes to `Alert Perlambatan`, sending proactive Telegram warning to Ops. | [`07-alert-perlambatan-durasi.txt`](file:///c:/Users/Windows/Documents/antigravity/milestone_phase3_set1/h8mart-ops/evidence/wf5/07-alert-perlambatan-durasi.txt) |
 
 ---
 
@@ -384,9 +445,9 @@ h8mart-ops/
 │   ├── deploy/                         # 01-compose-ps.txt, 02-curl-smoke-test.txt, ...
 │   ├── wf1/                            # 03-stock-count-205.txt, 04-retry-m004.txt, ...
 │   ├── wf2/                            # 03-mcp-tool-call.txt, 04-mcp-reader-insert-rejected.txt
-│   ├── wf3/                            # 05-dev-set-10-cases.txt, 06-prompt-injection.txt
-│   ├── wf4/                            # 03-compensation-voucher.txt, 04-refund-auto.txt, ...
-│   └── wf5/                            # 03-dead-letter-m009-and-orders.txt, 05-uptime-kuma-push.txt
+│   ├── wf3/                            # 05-dev-set-10-cases.txt, 06-prompt-injection.txt, 07-fallback-cs-escalation.txt
+│   ├── wf4/                            # 03-compensation-voucher.txt, 04-refund-auto.txt, 07-refund-rejected.txt
+│   └── wf5/                            # 03-dead-letter-m009-and-orders.txt, 05-uptime-kuma-push.txt, 07-alert-perlambatan-durasi.txt
 ├── fixtures/                           # Synthetic test event JSON fixtures
 │   ├── dev-set-asisten.json            # 10 labeled AI assistant test cases
 │   ├── event-delivery-late-*.json      # Late delivery event fixtures

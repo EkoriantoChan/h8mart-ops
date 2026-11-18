@@ -1,0 +1,45 @@
+EVIDENCE: AI Agent Fallback & Graceful Degradation to Human CS
+Workflow: WF3 Asisten AI Merchant
+Trigger: Webhook POST /webhook/merchant-assistant or Telegram Bot (@H8MartEko_Ops_Bot)
+
+Operational Scenario:
+Simulating an upstream LLM provider outage (e.g. OpenAI HTTP 503, rate-limit 429, or temporary network drop) during a merchant inquiry.
+
+Workflow Architecture & Error Containment:
+1. Webhook 'Terima Pertanyaan' ingests inquiry:
+   {
+     "merchant_id": "M003",
+     "question": "Berapa banyak order yang dibatalkan kemarin karena stok habis?"
+   }
+2. Node 'Ambil Hari Data Terakhir' retrieves '2026-11-10' from core.data_info.
+3. Node 'Asisten Merchant' (@n8n/n8n-nodes-langchain.agent) attempts LLM tool execution.
+4. If an unexpected exception occurs in the agent or model call:
+   - Configuration: onError = 'continueErrorOutput'
+   - Behavior: The node does NOT crash the workflow. Instead, it emits the error payload through Port 1 (Error output branch).
+5. Error output connects directly to Node 'Buat Tiket CS' (Postgres: ops_writer):
+   INSERT INTO ops.tickets (merchant_id, question, status, reason)
+   VALUES (
+     'M003',
+     'Berapa banyak order yang dibatalkan kemarin karena stok habis?',
+     'eskalasi_cs',
+     'AI Fallback: Gangguan pada LLM agent. Pertanyaan dialihkan otomatis ke Customer Service.'
+   ) RETURNING id;
+6. Node 'Balas Eskalasi' (Respond to Webhook) returns synchronous graceful response:
+   HTTP 200 OK
+   {
+     "status": "dieskalasi",
+     "jawaban": "Maaf, sistem asisten kami sedang mengalami kendala teknis saat memproses data. Pertanyaan Anda telah dialihkan ke tim Customer Service H8Mart dengan nomor tiket terdaftar.",
+     "tiket_id": 24,
+     "data_dipakai": []
+   }
+
+Database Verification:
+SELECT id, merchant_id, status, reason, created_at 
+FROM ops.tickets 
+WHERE reason LIKE '%AI Fallback%' 
+ORDER BY id DESC LIMIT 1;
+
+Result:
+24 | M003 | eskalasi_cs | AI Fallback: Gangguan pada LLM agent. Pertanyaan dialihkan otomatis ke Customer Service. | 2026-11-18 15:20:00+07
+
+Result: PASS (AI failure handled gracefully without workflow crash; automatic CS ticket logged; polite synchronous escalation returned to merchant).

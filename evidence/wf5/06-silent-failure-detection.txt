@@ -17,7 +17,15 @@ Execution Trace in WF1 Jalur A:
 7. Reliability Guarantee:
    - Node 'Heartbeat Uptime Kuma' is NEVER reached.
    - Uptime Kuma push monitor misses heartbeat, transitioning monitor to DOWN.
-   - Central Error Workflow (WF5) catches the failure and dispatches an immediate incident alert to Ops Telegram.
+   - Central Error Workflow (WF5) catches the failure and dispatches an immediate incident alert to Ops Telegram:
+     🚨 *H8Mart Ops Incident Alert*
+     *Workflow:* WF1 Stock Sync, Order Intake dan Digest
+     *Node:* Gagal: Sinkron 0 Baris
+     *Business Key:* EXEC-284
+     *Execution ID:* 284
+     *Error:* Sinkron stok menghasilkan 0 baris: kemungkinan pemadaman stok diam-diam (silent outage)
+     *Time:* 2026-11-18T14:20:12.330Z
+   - Dead-letter record created in ops.dead_letter with error message and business key.
 
 Recovery:
 POST http://mock-api:8080/admin/stock-outage?on=0

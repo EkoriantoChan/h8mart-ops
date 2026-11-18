@@ -1,4 +1,41 @@
-EVIDENCE C5: Large Refund Rejected by Ops
-Resume URL: http://localhost:5690/webhook-waiting/128/approval?action=reject
-ops.refund_actions record:
-HM-SP-005|224000|pending_approval|Order failed: merchant_menolak
+EVIDENCE C5: Large Refund Rejected / Declined by Ops
+Workflow: WF4 Kompensasi dan Refund
+Test Event: fixtures/event-order-failed-ditolak.json
+
+Event Payload:
+{
+  "event": "order.failed",
+  "order_id": "HM-SP-005",
+  "reason": "merchant_menolak"
+}
+
+Execution & Approval Flow:
+1. Webhook 'Terima Event' receives order.failed for order HM-SP-005.
+2. Node 'Ambil Order' queries core.orders: total_amount = Rp 224,000 (captured).
+3. Node 'Perlu Approval?' evaluates: total_amount > 100,000 -> TRUE.
+4. Node 'Catat Usulan Refund' records initial status:
+   INSERT INTO ops.refund_actions (order_id, idempotency_key, amount, status, note)
+   VALUES ('HM-SP-005', 'ref-HM-SP-005', 224000, 'pending_approval', 'Order failed: merchant_menolak');
+5. Node 'Minta Approval Telegram' (n8n-nodes-base.telegram, sendAndWait) dispatches approval request to Ops Telegram chat:
+   - Message: "Permintaan Refund Besar: Order HM-SP-005 sebesar Rp224.000. Alasan: merchant_menolak. Mohon persetujuan."
+   - Buttons: [Approve] [Decline]
+   - Execution pauses safely in waiting state.
+6. Ops Decision: Ops taps [Decline] in Telegram (or opens resume URL with action=reject).
+7. Node 'Disetujui?' evaluates decision == 'approved':
+   - Evaluated Value: 'decline' == 'approved' -> FALSE.
+8. Execution routes to branch False -> Node 'Tandai Ditolak':
+   UPDATE ops.refund_actions 
+   SET status = 'rejected', note = 'Ditolak oleh Ops', updated_at = now() 
+   WHERE order_id = 'HM-SP-005';
+9. Critical Financial Safeguard: Node 'Panggil Payment Refund' is BYPASSED (zero funds disbursed).
+
+Database Verification:
+SELECT order_id, amount, status, note, payment_ref FROM ops.refund_actions WHERE order_id = 'HM-SP-005';
+Result:
+HM-SP-005 | 224000 | rejected | Ditolak oleh Ops | null
+
+Visual Verification Artifacts:
+- Chat Screenshot: evidence/wf4/WF4 - Large Order Refund Approval Flow - Telegram Chat - Refund Declined.png
+- Execution Canvas: evidence/wf4/WF4 - Large Order Refund Approval Flow - Executions - Refund Declined.png
+
+Result: PASS (High-value refund declined cleanly; status correctly updated to 'rejected'; Payment API call suppressed).

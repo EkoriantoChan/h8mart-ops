@@ -54,6 +54,7 @@
         200
       ],
       "parameters": {
+        "hasOutputParser": true,
         "promptType": "define",
         "text": "=ID Merchant Penanya: {{ $('Terima Pertanyaan').first().json.body.merchant_id }}\nHari Data Terakhir (rujukan 'kemarin' dan 'hari ini'): {{ $json.hari_data_terakhir }}\nPertanyaan Merchant: {{ $('Terima Pertanyaan').first().json.body.question }}",
         "options": {
@@ -341,6 +342,7 @@
     "executionOrder": "v1",
     "timezone": "Asia/Jakarta",
     "saveExecutionProgress": false,
-    "saveManualExecutions": true
+    "saveManualExecutions": true,
+    "errorWorkflow": "fIaC1AzK9mQmzDc1"
   }
 }

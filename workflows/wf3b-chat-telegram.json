@@ -201,6 +201,7 @@
     "executionOrder": "v1",
     "timezone": "Asia/Jakarta",
     "saveExecutionProgress": false,
-    "saveManualExecutions": true
+    "saveManualExecutions": true,
+    "errorWorkflow": "fIaC1AzK9mQmzDc1"
   }
 }

@@ -21,7 +21,7 @@
         100
       ],
       "parameters": {
-        "jsCode": "const err = $json.execution?.error || {};\nconst wf = $json.workflow || {};\nconst execId = $json.execution?.id || 'unknown';\n\nconst wfName = wf.name || 'Unknown Workflow';\nconst nodeName = err.node?.name || 'Unknown Node';\nconst errMsg = err.message || 'Unknown error occurred';\n\nconst alertText = `🚨 *H8Mart Ops Incident Alert*\\n` +\n  `*Workflow:* ${wfName}\\n` +\n  `*Node:* ${nodeName}\\n` +\n  `*Execution ID:* ${execId}\\n` +\n  `*Error:* ${errMsg}\\n` +\n  `*Time:* ${new Date().toISOString()}`;\n\nreturn [{\n  json: {\n    workflow_name: wfName,\n    node_name: nodeName,\n    execution_id: execId,\n    error_message: errMsg,\n    alert_text: alertText\n  }\n}];"
+        "jsCode": "const err = $json.execution?.error || {};\nconst wf = $json.workflow || {};\nconst execId = $json.execution?.id || 'unknown';\n\nconst wfName = wf.name || 'Unknown Workflow';\nconst nodeName = err.node?.name || 'Unknown Node';\nconst errMsg = err.message || 'Unknown error occurred';\n\n// Ekstrak business key (order_id atau merchant_id)\nlet businessKey = 'N/A';\nconst fullStr = JSON.stringify($json);\nconst orderMatch = fullStr.match(/(?:order_id|orderId|order)[\"']?\\s*[:=]\\s*[\"']?(HM-[A-Za-z0-9-]+)/i) || errMsg.match(/(HM-[A-Za-z0-9-]+)/i);\nconst merchantMatch = fullStr.match(/(?:merchant_id|merchantId|merchant)[\"']?\\s*[:=]\\s*[\"']?(M0[0-9]{2})/i) || errMsg.match(/(M0[0-9]{2})/i);\n\nif (orderMatch) {\n  businessKey = orderMatch[1];\n} else if (merchantMatch) {\n  businessKey = merchantMatch[1];\n} else {\n  const runData = $json.execution?.data?.resultData?.runData;\n  if (runData) {\n    const runStr = JSON.stringify(runData);\n    const m1 = runStr.match(/(HM-[A-Za-z0-9-]+)/);\n    const m2 = runStr.match(/(M0[0-9]{2})/);\n    if (m1) businessKey = m1[1];\n    else if (m2) businessKey = m2[1];\n  }\n}\nif (businessKey === 'N/A') {\n  businessKey = `EXEC-${execId}`;\n}\n\nconst alertText = `🚨 *H8Mart Ops Incident Alert*\\n` +\n  `*Workflow:* ${wfName}\\n` +\n  `*Node:* ${nodeName}\\n` +\n  `*Business Key:* ${businessKey}\\n` +\n  `*Execution ID:* ${execId}\\n` +\n  `*Error:* ${errMsg}\\n` +\n  `*Time:* ${new Date().toISOString()}`;\n\nreturn [{\n  json: {\n    workflow_name: wfName,\n    node_name: nodeName,\n    execution_id: execId,\n    business_key: businessKey,\n    error_message: errMsg,\n    alert_text: alertText\n  }\n}];"
       }
     },
     {
@@ -41,7 +41,7 @@
       },
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO ops.dead_letter (workflow, node, execution_id, business_key, error_message, payload, attempts, status)\nVALUES (\n  '{{ $json.workflow_name }}',\n  '{{ $json.node_name }}',\n  '{{ $json.execution_id }}',\n  'EXEC-{{ $json.execution_id }}',\n  '{{ ($json.error_message || \"\").replace(/'/g, \"''\") }}',\n  '{{ JSON.stringify($json) }}'::jsonb,\n  1,\n  'open'\n)\nRETURNING *;"
+        "query": "INSERT INTO ops.dead_letter (workflow, node, execution_id, business_key, error_message, payload, attempts, status)\nVALUES (\n  '{{ $json.workflow_name }}',\n  '{{ $json.node_name }}',\n  '{{ $json.execution_id }}',\n  '{{ $json.business_key }}',\n  '{{ ($json.error_message || \"\").replace(/'/g, \"''\") }}',\n  '{{ JSON.stringify($json) }}'::jsonb,\n  1,\n  'open'\n)\nRETURNING *;"
       },
       "onError": "continueRegularOutput"
     },
