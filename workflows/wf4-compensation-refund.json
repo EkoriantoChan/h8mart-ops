@@ -384,7 +384,7 @@
           },
           "conditions": [
             {
-              "leftValue": "={{ Boolean($json.data?.approved === true || $json.approved === true || ($json.query?.action !== 'reject' && $json.query?.action !== 'decline' && $json.body?.action !== 'reject' && $json.body?.action !== 'decline')) }}",
+              "leftValue": "={{ Boolean($json.data?.approved === true || $json.approved === true || $json.query?.action === 'approve' || $json.body?.action === 'approve') }}",
               "rightValue": true,
               "operator": {
                 "type": "boolean",
