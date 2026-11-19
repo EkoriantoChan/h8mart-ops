@@ -139,8 +139,8 @@ Model used: **OpenAI `gpt-6-luna`** (course standard fine-tuned LLM endpoint bas
 
 * **Official OpenAI API Pricing (Verified November 2026 from [OpenAI API Pricing](https://openai.com/api/pricing/)):**
   - **Standard `gpt-6-luna` / `gpt-4o-mini` Tier:**
-    - Input Tokens: **US\$ 0.150 per 1,000,000 tokens** (US\$ 0.075 / 1M for cached inputs)
-    - Output Tokens: **US\$ 0.600 per 1,000,000 tokens**
+    - Input Tokens: **US\$ 0.10 per 1,000,000 tokens** (US\$ 0.01 / 1M for cached inputs)
+    - Output Tokens: **US\$ 0.50 per 1,000,000 tokens**
   - **Flagship `gpt-4o` High-Reasoning Reference Tier:**
     - Input Tokens: **US\$ 2.500 per 1,000,000 tokens**
     - Output Tokens: **US\$ 10.000 per 1,000,000 tokens**
